@@ -16,10 +16,14 @@ class AppWindowController extends ChangeNotifier {
   String get explanation => _explanation;
   int get explanationGeneration => _explanationGeneration;
 
+  static const _settingsSize = Size(420, 520);
+  static const _explanationSize = Size(420, 340);
+
   Future<void> showSettings() async {
     _view = WindowView.settings;
     notifyListeners();
-    await windowManager.setSize(const Size(420, 320));
+    await windowManager.setMinimumSize(_settingsSize);
+    await windowManager.setSize(_settingsSize);
     await windowManager.setAlignment(Alignment.center);
     await windowManager.show();
     await windowManager.focus();
@@ -35,8 +39,9 @@ class AppWindowController extends ChangeNotifier {
     _explanationGeneration++;
     notifyListeners();
 
-    await windowManager.setSize(const Size(420, 340));
-    await _positionBottomRight(const Size(420, 340));
+    await windowManager.setMinimumSize(_explanationSize);
+    await windowManager.setSize(_explanationSize);
+    await _positionBottomRight(_explanationSize);
     await windowManager.show();
   }
 

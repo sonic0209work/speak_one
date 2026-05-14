@@ -20,7 +20,7 @@ void main() async {
 
   await windowManager.ensureInitialized();
   const windowOptions = WindowOptions(
-    size: Size(420, 320),
+    size: Size(420, 520),
     center: true,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.normal,

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Arc at SW quadrant (◟): from bottom (12,21) to left (3,12) -->
+<!-- SW arc (◟): 6→9 o'clock, rotate NW base 270° CW -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
      stroke="#ffffff" stroke-linecap="round">
   <circle cx="12" cy="12" r="9" stroke-width="1.5" stroke-opacity="0.25"/>
-  <path d="M12 21 A9 9 0 0 0 3 12" stroke-width="2.5"/>
+  <path d="M3 12 A9 9 0 0 1 12 3" stroke-width="2.5" transform="rotate(270, 12, 12)"/>
 </svg>

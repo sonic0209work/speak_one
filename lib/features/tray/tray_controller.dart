@@ -67,7 +67,9 @@ class TrayController {
   }
 
   Future<void> _aiExplainAndShow(String text, int generation) async {
+    _trayIconService.startThinking();
     final result = await _ollamaService.explain(text);
+    await _trayIconService.stopThinking();
     if (_generation != generation) return;
     if (result is Success<String>) {
       await _appWindowController.showExplanation(text, result.value);

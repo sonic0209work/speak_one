@@ -1,13 +1,24 @@
+import 'dart:io';
+
 import 'package:tray_manager/tray_manager.dart';
 
-class TrayIconService {
-  // XDG icon theme names — AppIndicator resolves these from the system theme,
-  // avoiding the file-path caching issue in app_indicator_set_icon_full.
+class TrayIconService with TrayListener {
   static const _idle = 'audio-volume-medium';
   static const _speaking = 'audio-volume-high';
   static const _error = 'audio-volume-muted';
 
-  Future<void> init() => trayManager.setIcon(_idle);
+  Future<void> init() async {
+    trayManager.addListener(this);
+    await trayManager.setIcon(_idle);
+    await trayManager.setContextMenu(Menu(items: [
+      MenuItem(key: 'exit', label: 'Exit'),
+    ]));
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) {
+    if (menuItem.key == 'exit') exit(0);
+  }
 
   Future<void> setIdle() => trayManager.setIcon(_idle);
   Future<void> setSpeaking() => trayManager.setIcon(_speaking);

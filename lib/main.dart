@@ -14,23 +14,30 @@ import 'features/tts/domain/tts_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  setupServiceLocator();
+  await setupServiceLocator();
 
   await windowManager.ensureInitialized();
   const windowOptions = WindowOptions(
-    size: Size(320, 80),
-    center: false,
-    backgroundColor: Colors.transparent,
-    skipTaskbar: true,
-    titleBarStyle: TitleBarStyle.hidden,
-    alwaysOnTop: false,
+    size: Size(420, 280),
+    center: true,
+    skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.normal,
+    alwaysOnTop: true,
+    title: 'Speak One — Settings',
   );
+  // Must show once to map the GTK window before hide/show will work reliably.
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
     await windowManager.hide();
   });
 
   final trayIconService = GetIt.I<TrayIconService>();
   await trayIconService.init();
+
+  trayIconService.onSettingsRequested = () async {
+    await windowManager.show();
+    await windowManager.focus();
+  };
 
   GetIt.instance.registerSingleton<TrayController>(
     TrayController(

@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get_it/get_it.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'app/app_window_controller.dart';
 import 'app/panel_app.dart';
 import 'core/di/service_locator.dart';
 import 'core/services/isolate_service.dart';
+import 'features/ai_explain/data/ollama_service.dart';
 import 'features/notification/notification_service.dart';
 import 'features/translate/data/translate_service.dart';
 import 'features/tray/tray_controller.dart';
@@ -18,12 +20,12 @@ void main() async {
 
   await windowManager.ensureInitialized();
   const windowOptions = WindowOptions(
-    size: Size(420, 280),
+    size: Size(420, 320),
     center: true,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.normal,
     alwaysOnTop: true,
-    title: 'Speak One — Settings',
+    title: 'Speak One',
   );
   // Must show once to map the GTK window before hide/show will work reliably.
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -34,10 +36,8 @@ void main() async {
   final trayIconService = GetIt.I<TrayIconService>();
   await trayIconService.init();
 
-  trayIconService.onSettingsRequested = () async {
-    await windowManager.show();
-    await windowManager.focus();
-  };
+  final appWindowController = GetIt.I<AppWindowController>();
+  trayIconService.onSettingsRequested = () => appWindowController.showSettings();
 
   GetIt.instance.registerSingleton<TrayController>(
     TrayController(
@@ -46,6 +46,8 @@ void main() async {
       ttsRepository: GetIt.I<TtsRepository>(),
       translateService: GetIt.I<TranslateService>(),
       notificationService: GetIt.I<NotificationService>(),
+      ollamaService: GetIt.I<OllamaService>(),
+      appWindowController: appWindowController,
     ),
   );
 

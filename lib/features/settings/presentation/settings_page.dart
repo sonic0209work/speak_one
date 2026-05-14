@@ -28,17 +28,33 @@ class _SettingsPageState extends State<SettingsPage> {
 
   late String _sourceLang;
   late String _targetLang;
+  late bool _aiEnabled;
+  late TextEditingController _ollamaUrl;
+  late TextEditingController _ollamaModel;
 
   @override
   void initState() {
     super.initState();
     _sourceLang = _settings.sourceLang;
     _targetLang = _settings.targetLang;
+    _aiEnabled = _settings.aiEnabled;
+    _ollamaUrl = TextEditingController(text: _settings.ollamaUrl);
+    _ollamaModel = TextEditingController(text: _settings.ollamaModel);
+  }
+
+  @override
+  void dispose() {
+    _ollamaUrl.dispose();
+    _ollamaModel.dispose();
+    super.dispose();
   }
 
   Future<void> _save() async {
     await _settings.setSourceLang(_sourceLang);
     await _settings.setTargetLang(_targetLang);
+    await _settings.setAiEnabled(_aiEnabled);
+    await _settings.setOllamaUrl(_ollamaUrl.text.trim());
+    await _settings.setOllamaModel(_ollamaModel.text.trim());
     await windowManager.hide();
   }
 
@@ -46,25 +62,45 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _sectionLabel('Translation'),
+            const SizedBox(height: 8),
             _LangRow(
               label: 'Source language',
               value: _sourceLang,
               options: _langOptions,
               onChanged: (v) => setState(() => _sourceLang = v),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _LangRow(
               label: 'Target language',
               value: _targetLang,
               options: _langOptions.where((e) => e.$1 != 'auto').toList(),
               onChanged: (v) => setState(() => _targetLang = v),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
+            _sectionLabel('AI Explanation (Ollama)'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const SizedBox(width: 140, child: Text('Enable AI')),
+                Switch(
+                  value: _aiEnabled,
+                  onChanged: (v) => setState(() => _aiEnabled = v),
+                ),
+              ],
+            ),
+            if (_aiEnabled) ...[
+              const SizedBox(height: 12),
+              _TextField(label: 'Ollama URL', controller: _ollamaUrl),
+              const SizedBox(height: 12),
+              _TextField(label: 'Model', controller: _ollamaModel),
+            ],
+            const SizedBox(height: 28),
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
@@ -77,6 +113,16 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+
+  Widget _sectionLabel(String text) => Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.primary,
+          letterSpacing: 0.8,
+        ),
+      );
 }
 
 class _LangRow extends StatelessWidget {
@@ -105,6 +151,33 @@ class _LangRow extends StatelessWidget {
                 .map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2)))
                 .toList(),
             onChanged: (v) { if (v != null) onChanged(v); },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TextField extends StatelessWidget {
+  const _TextField({required this.label, required this.controller});
+
+  final String label;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(width: 140, child: Text(label)),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            style: const TextStyle(fontSize: 13),
+            decoration: const InputDecoration(
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
           ),
         ),
       ],

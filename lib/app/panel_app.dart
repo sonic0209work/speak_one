@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'app_window_controller.dart';
+import '../features/ai_explain/presentation/explanation_page.dart';
 import '../features/settings/presentation/settings_page.dart';
 
 class PanelApp extends StatefulWidget {
@@ -11,6 +14,8 @@ class PanelApp extends StatefulWidget {
 }
 
 class _PanelAppState extends State<PanelApp> with WindowListener {
+  final _ctrl = GetIt.I<AppWindowController>();
+
   @override
   void initState() {
     super.initState();
@@ -25,16 +30,22 @@ class _PanelAppState extends State<PanelApp> with WindowListener {
   }
 
   @override
-  void onWindowClose() async {
-    await windowManager.hide();
-  }
+  void onWindowClose() async => await _ctrl.hideWindow();
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(),
-      home: const SettingsPage(),
+      home: ListenableBuilder(
+        listenable: _ctrl,
+        builder: (_, __) => switch (_ctrl.view) {
+          WindowView.explanation => ExplanationPage(
+              key: ValueKey(_ctrl.explanationGeneration),
+            ),
+          _ => const SettingsPage(),
+        },
+      ),
     );
   }
 }

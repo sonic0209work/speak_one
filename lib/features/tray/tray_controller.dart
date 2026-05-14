@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:speak_one_linux_accessibility/speak_one_linux_accessibility.dart';
 
 import '../../app/app_window_controller.dart';
@@ -39,6 +40,7 @@ class TrayController {
   final AppWindowController _appWindowController;
   late final StreamSubscription<TextSelectionEvent> _subscription;
   int _generation = 0;
+  CancelToken? _aiCancelToken;
 
   Future<void> _onSelection(TextSelectionEvent event) async {
     final generation = ++_generation;
@@ -67,10 +69,13 @@ class TrayController {
   }
 
   Future<void> _aiExplainAndShow(String text, int generation) async {
+    _aiCancelToken?.cancel();
+    final token = _aiCancelToken = CancelToken();
     _trayIconService.startThinking();
-    final result = await _ollamaService.explain(text);
-    await _trayIconService.stopThinking();
+    final result = await _ollamaService.explain(text, cancelToken: token);
     if (_generation != generation) return;
+    _aiCancelToken = null;
+    await _trayIconService.stopThinking();
     if (result is Success<String>) {
       await _appWindowController.showExplanation(text, result.value);
     }

@@ -16,7 +16,7 @@ class OllamaService {
 
   static final _cjkRegex = RegExp(r'[一-鿿㐀-䶿]');
 
-  Future<Result<String>> explain(String text) async {
+  Future<Result<String>> explain(String text, {CancelToken? cancelToken}) async {
     final settings = GetIt.I<SettingsService>();
     if (!settings.aiEnabled) return const Failure(AiDisabled());
 
@@ -46,6 +46,7 @@ Respond entirely in $responseLang.''';
           ],
           'stream': false,
         },
+        cancelToken: cancelToken,
       );
       final content =
           response.data?['message']?['content'] as String?;
@@ -54,6 +55,9 @@ Respond entirely in $responseLang.''';
       }
       return const Failure(AiParseError());
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        return Failure(AiNetworkError('cancelled'));
+      }
       return Failure(AiNetworkError(e.message ?? 'network error'));
     } catch (_) {
       return const Failure(AiParseError());

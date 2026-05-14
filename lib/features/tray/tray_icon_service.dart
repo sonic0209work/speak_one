@@ -25,7 +25,6 @@ class TrayIconService with TrayListener {
   VoidCallback? onSettingsRequested;
 
   String _logicalIcon = _idle;
-  int _thinkingCount = 0;
   int _frameIndex = 0;
   Timer? _thinkingTimer;
 
@@ -55,30 +54,25 @@ class TrayIconService with TrayListener {
   Future<void> setError() => _setLogical(_error);
 
   void startThinking() {
-    _thinkingCount++;
-    if (_thinkingCount == 1) {
-      _frameIndex = 0;
-      _thinkingTimer = Timer.periodic(
-        const Duration(milliseconds: 300),
-        (_) => trayManager.setIcon(
-          _thinkingFrames[_frameIndex++ % _thinkingFrames.length],
-        ),
-      );
-    }
+    if (_thinkingTimer != null) return;
+    _frameIndex = 0;
+    _thinkingTimer = Timer.periodic(
+      const Duration(milliseconds: 300),
+      (_) => trayManager.setIcon(
+        _thinkingFrames[_frameIndex++ % _thinkingFrames.length],
+      ),
+    );
   }
 
   Future<void> stopThinking() async {
-    _thinkingCount = (_thinkingCount - 1).clamp(0, 999);
-    if (_thinkingCount == 0) {
-      _thinkingTimer?.cancel();
-      _thinkingTimer = null;
-      await trayManager.setIcon(_logicalIcon);
-    }
+    _thinkingTimer?.cancel();
+    _thinkingTimer = null;
+    await trayManager.setIcon(_logicalIcon);
   }
 
   Future<void> _setLogical(String icon) async {
     _logicalIcon = icon;
-    if (_thinkingCount == 0) await trayManager.setIcon(icon);
+    if (_thinkingTimer == null) await trayManager.setIcon(icon);
   }
 
   Future<void> _installIcons() async {

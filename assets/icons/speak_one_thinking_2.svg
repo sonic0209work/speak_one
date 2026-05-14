@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Arc at SE quadrant (◞): from right (21,12) to bottom (12,21) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="#ffffff" stroke-linecap="round">
+  <circle cx="12" cy="12" r="9" stroke-width="1.5" opacity="0.25"/>
+  <path d="M21 12 A9 9 0 0 0 12 21" stroke-width="2.5"/>
+</svg>

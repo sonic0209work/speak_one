@@ -2,19 +2,24 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:tray_manager/tray_manager.dart';
 
 class TrayIconService with TrayListener {
-  static const _idle = 'audio-volume-medium';
-  static const _speaking = 'audio-volume-high';
-  static const _error = 'audio-volume-muted';
+  static const _idle = 'speak_one_idle';
+  static const _speaking = 'speak_one_speaking';
+  static const _error = 'speak_one_error';
 
-  // Thinking animation: pulse muted → medium → high → medium → …
   static const _thinkingFrames = [
-    'audio-volume-muted',
-    'audio-volume-medium',
-    'audio-volume-high',
-    'audio-volume-medium',
+    'speak_one_thinking_0',
+    'speak_one_thinking_1',
+    'speak_one_thinking_2',
+    'speak_one_thinking_3',
+  ];
+
+  static const _allIcons = [
+    _idle, _speaking, _error,
+    ..._thinkingFrames,
   ];
 
   VoidCallback? onSettingsRequested;
@@ -25,6 +30,7 @@ class TrayIconService with TrayListener {
   Timer? _thinkingTimer;
 
   Future<void> init() async {
+    await _installIcons();
     trayManager.addListener(this);
     await trayManager.setIcon(_idle);
     await trayManager.setContextMenu(Menu(items: [
@@ -73,5 +79,27 @@ class TrayIconService with TrayListener {
   Future<void> _setLogical(String icon) async {
     _logicalIcon = icon;
     if (_thinkingCount == 0) await trayManager.setIcon(icon);
+  }
+
+  Future<void> _installIcons() async {
+    final home = Platform.environment['HOME'];
+    if (home == null) return;
+
+    final dir = Directory('$home/.local/share/icons/hicolor/scalable/apps');
+    await dir.create(recursive: true);
+
+    for (final name in _allIcons) {
+      final dest = File('${dir.path}/$name.svg');
+      if (!await dest.exists()) {
+        final data = await rootBundle.load('assets/icons/$name.svg');
+        await dest.writeAsBytes(data.buffer.asUint8List());
+      }
+    }
+
+    // Update icon cache (best-effort; failure is non-critical).
+    await Process.run('gtk-update-icon-cache', [
+      '--force', '--ignore-theme-index',
+      '$home/.local/share/icons/hicolor/',
+    ]);
   }
 }

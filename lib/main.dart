@@ -6,6 +6,8 @@ import 'package:window_manager/window_manager.dart';
 import 'app/panel_app.dart';
 import 'core/di/service_locator.dart';
 import 'core/services/isolate_service.dart';
+import 'features/notification/notification_service.dart';
+import 'features/translate/data/translate_service.dart';
 import 'features/tray/tray_controller.dart';
 import 'features/tray/tray_icon_service.dart';
 import 'features/tts/domain/tts_repository.dart';
@@ -35,6 +37,8 @@ void main() async {
       isolateService: GetIt.I<IsolateService>(),
       trayIconService: trayIconService,
       ttsRepository: GetIt.I<TtsRepository>(),
+      translateService: GetIt.I<TranslateService>(),
+      notificationService: GetIt.I<NotificationService>(),
     ),
   );
 

@@ -82,18 +82,24 @@ class TrayIconService with TrayListener {
     final dir = Directory('$home/.local/share/icons/hicolor/scalable/apps');
     await dir.create(recursive: true);
 
+    var anyNew = false;
     for (final name in _allIcons) {
       final dest = File('${dir.path}/$name.svg');
       if (!await dest.exists()) {
         final data = await rootBundle.load('assets/icons/$name.svg');
         await dest.writeAsBytes(data.buffer.asUint8List());
+        anyNew = true;
       }
     }
 
-    // Update icon cache (best-effort; failure is non-critical).
-    await Process.run('gtk-update-icon-cache', [
-      '--force', '--ignore-theme-index',
-      '$home/.local/share/icons/hicolor/',
-    ]);
+    // Only refresh cache when icons were newly installed — running this on
+    // every startup causes a GTK icon-theme reload race that crashes XFCE's
+    // systray plugin with an integer-overflow allocation error.
+    if (anyNew) {
+      await Process.run('gtk-update-icon-cache', [
+        '--force', '--ignore-theme-index',
+        '$home/.local/share/icons/hicolor/',
+      ]);
+    }
   }
 }

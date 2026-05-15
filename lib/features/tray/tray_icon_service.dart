@@ -27,11 +27,12 @@ class TrayIconService with TrayListener {
   String _logicalIcon = _idle;
   int _frameIndex = 0;
   Timer? _thinkingTimer;
+  String _cacheDir = '';
 
   Future<void> init() async {
-    await _installIcons();
+    _cacheDir = await _installIcons();
     trayManager.addListener(this);
-    await trayManager.setIcon(_idle);
+    await trayManager.setIcon(_path(_idle));
     await trayManager.setContextMenu(Menu(items: [
       MenuItem(key: 'settings', label: 'Settings'),
       MenuItem.separator(),
@@ -49,6 +50,8 @@ class TrayIconService with TrayListener {
     }
   }
 
+  String _path(String name) => '$_cacheDir/$name.png';
+
   Future<void> setIdle() => _setLogical(_idle);
   Future<void> setSpeaking() => _setLogical(_speaking);
   Future<void> setError() => _setLogical(_error);
@@ -59,7 +62,7 @@ class TrayIconService with TrayListener {
     _thinkingTimer = Timer.periodic(
       const Duration(milliseconds: 300),
       (_) => trayManager.setIcon(
-        _thinkingFrames[_frameIndex++ % _thinkingFrames.length],
+        _path(_thinkingFrames[_frameIndex++ % _thinkingFrames.length]),
       ),
     );
   }
@@ -67,39 +70,29 @@ class TrayIconService with TrayListener {
   Future<void> stopThinking() async {
     _thinkingTimer?.cancel();
     _thinkingTimer = null;
-    await trayManager.setIcon(_logicalIcon);
+    await trayManager.setIcon(_path(_logicalIcon));
   }
 
   Future<void> _setLogical(String icon) async {
     _logicalIcon = icon;
-    if (_thinkingTimer == null) await trayManager.setIcon(icon);
+    if (_thinkingTimer == null) await trayManager.setIcon(_path(icon));
   }
 
-  Future<void> _installIcons() async {
-    final home = Platform.environment['HOME'];
-    if (home == null) return;
-
-    final dir = Directory('$home/.local/share/icons/hicolor/scalable/apps');
+  // Installs PNG tray icons to ~/.cache/speak_one/icons/ and returns that path.
+  // Uses the cache dir (not the icon theme) so no gtk-update-icon-cache is needed.
+  Future<String> _installIcons() async {
+    final home = Platform.environment['HOME'] ?? '';
+    final dir = Directory('$home/.cache/speak_one/icons');
     await dir.create(recursive: true);
 
-    var anyNew = false;
     for (final name in _allIcons) {
-      final dest = File('${dir.path}/$name.svg');
+      final dest = File('${dir.path}/$name.png');
       if (!await dest.exists()) {
-        final data = await rootBundle.load('assets/icons/$name.svg');
+        final data = await rootBundle.load('assets/icons/tray/$name.png');
         await dest.writeAsBytes(data.buffer.asUint8List());
-        anyNew = true;
       }
     }
 
-    // Only refresh cache when icons were newly installed — running this on
-    // every startup causes a GTK icon-theme reload race that crashes XFCE's
-    // systray plugin with an integer-overflow allocation error.
-    if (anyNew) {
-      await Process.run('gtk-update-icon-cache', [
-        '--force', '--ignore-theme-index',
-        '$home/.local/share/icons/hicolor/',
-      ]);
-    }
+    return dir.path;
   }
 }

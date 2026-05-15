@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../autostart/autostart_service.dart';
 import '../settings_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -13,6 +14,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _settings = GetIt.I<SettingsService>();
+  final _autostart = GetIt.I<AutostartService>();
 
   static const _langOptions = [
     ('auto', 'Auto-detect'),
@@ -31,6 +33,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool _aiEnabled;
   late TextEditingController _ollamaUrl;
   late TextEditingController _ollamaModel;
+  bool _autostartEnabled = false;
 
   @override
   void initState() {
@@ -40,6 +43,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _aiEnabled = _settings.aiEnabled;
     _ollamaUrl = TextEditingController(text: _settings.ollamaUrl);
     _ollamaModel = TextEditingController(text: _settings.ollamaModel);
+    _autostart.isEnabled().then((v) {
+      if (mounted) setState(() => _autostartEnabled = v);
+    });
   }
 
   @override
@@ -55,6 +61,11 @@ class _SettingsPageState extends State<SettingsPage> {
     await _settings.setAiEnabled(_aiEnabled);
     await _settings.setOllamaUrl(_ollamaUrl.text.trim());
     await _settings.setOllamaModel(_ollamaModel.text.trim());
+    if (_autostartEnabled) {
+      await _autostart.enable();
+    } else {
+      await _autostart.disable();
+    }
     await windowManager.hide();
   }
 
@@ -100,6 +111,18 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 12),
               _TextField(label: 'Model', controller: _ollamaModel),
             ],
+            const SizedBox(height: 20),
+            _sectionLabel('System'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const SizedBox(width: 140, child: Text('Launch at login')),
+                Switch(
+                  value: _autostartEnabled,
+                  onChanged: (v) => setState(() => _autostartEnabled = v),
+                ),
+              ],
+            ),
             const SizedBox(height: 28),
             Align(
               alignment: Alignment.centerRight,

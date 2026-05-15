@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../../app/app_window_controller.dart';
 import '../services/isolate_service.dart';
 import '../../features/ai_explain/data/ollama_service.dart';
+import '../../features/autostart/autostart_service.dart';
 import '../../features/notification/notification_service.dart';
 import '../../features/settings/settings_service.dart';
 import '../../features/translate/data/translate_service.dart';
@@ -21,6 +22,7 @@ Future<void> setupServiceLocator() async {
   gi.registerSingleton<TranslateService>(TranslateService());
   gi.registerSingleton<NotificationService>(NotificationService());
   gi.registerSingleton<OllamaService>(OllamaService());
+  gi.registerSingleton<AutostartService>(AutostartService());
   gi.registerSingleton<AppWindowController>(AppWindowController());
   gi.registerSingleton<TrayIconService>(TrayIconService());
 }

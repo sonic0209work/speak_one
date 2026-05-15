@@ -31,11 +31,10 @@ mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 # Copy entire Flutter bundle into usr/lib/speak_one
 cp -r "$BUNDLE/." "$APPDIR/usr/lib/speak_one/"
 
-# AppRun entry point
+# AppRun entry point — binary uses RUNPATH=$ORIGIN/lib, no LD_LIBRARY_PATH needed
 cat > "$APPDIR/AppRun" << 'APPRUN'
 #!/bin/bash
 HERE="$(cd "$(dirname "$0")" && pwd)"
-export LD_LIBRARY_PATH="$HERE/usr/lib/speak_one/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec "$HERE/usr/lib/speak_one/speak_one" "$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"

@@ -5,15 +5,17 @@ import '../../../core/types/result.dart';
 
 class OcrDatasource {
   // Maps speak_one lang codes → tesseract language codes.
+  // English is always appended (via +eng) to handle mixed-language text.
   static const _langMap = {
-    'zh-TW': 'chi_tra',
-    'zh-CN': 'chi_sim',
-    'ja': 'jpn',
-    'ko': 'kor',
-    'fr': 'fra',
-    'de': 'deu',
-    'es': 'spa',
+    'zh-TW': 'chi_tra+eng',
+    'zh-CN': 'chi_sim+eng',
+    'ja': 'jpn+eng',
+    'ko': 'kor+eng',
+    'fr': 'fra+eng',
+    'de': 'deu+eng',
+    'es': 'spa+eng',
     'en': 'eng',
+    // 'auto': omitted — falls back to tesseract default (eng only)
   };
 
   Future<Result<String>> extract(String imagePath, {String sourceLang = 'auto'}) async {

@@ -9,30 +9,29 @@ class AppWindowController extends ChangeNotifier {
   String _original = '';
   String _translation = '';
   String _explanation = '';
+  bool _isTranslating = false;
   bool _isAiThinking = false;
   int _explanationGeneration = 0;
 
   static const _settingsSize = Size(420, 400);
-  static const _explanationSize = Size(420, 240);
+  static const _explanationSize = Size(420, 80);
 
   WindowView get view => _view;
   String get original => _original;
   String get translation => _translation;
   String get explanation => _explanation;
+  bool get isTranslating => _isTranslating;
   bool get isAiThinking => _isAiThinking;
   int get explanationGeneration => _explanationGeneration;
 
-  // Show window with translation immediately; set isAiThinking if AI will follow.
-  Future<void> showTranslation(
-    String original,
-    String translation, {
-    bool aiPending = true,
-  }) async {
+  // Opens the window immediately with just the original text.
+  Future<void> showOriginal(String original) async {
     if (_view == WindowView.settings) return;
     _original = original;
-    _translation = translation;
+    _translation = '';
     _explanation = '';
-    _isAiThinking = aiPending;
+    _isTranslating = true;
+    _isAiThinking = false;
     _view = WindowView.explanation;
     _explanationGeneration++;
     notifyListeners();
@@ -43,7 +42,16 @@ class AppWindowController extends ChangeNotifier {
     await windowManager.show();
   }
 
-  // Called when AI explanation arrives; updates the already-visible window.
+  // Called when translation is ready; window is already visible.
+  Future<void> updateTranslation(String translation, {bool aiPending = false}) async {
+    if (_view != WindowView.explanation) return;
+    _translation = translation;
+    _isTranslating = false;
+    _isAiThinking = aiPending;
+    notifyListeners();
+  }
+
+  // Called when AI explanation is ready.
   Future<void> updateExplanation(String explanation) async {
     if (_view != WindowView.explanation) return;
     _explanation = explanation;
@@ -63,6 +71,7 @@ class AppWindowController extends ChangeNotifier {
 
   Future<void> hideWindow() async {
     _view = WindowView.none;
+    _isTranslating = false;
     _isAiThinking = false;
     notifyListeners();
     await windowManager.hide();

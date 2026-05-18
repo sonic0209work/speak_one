@@ -58,7 +58,9 @@ class TrayController {
     await _trayIconService.setSpeaking();
     await _ttsRepository.stop();
 
-    _translateThenShow(event.text, generation);
+    // Open window immediately, then fill translation + AI in background.
+    await _appWindowController.showOriginal(event.text);
+    _translateAndUpdate(event.text, generation);
 
     final result = await _ttsRepository.speak(event.text);
     if (_generation != generation) return;
@@ -89,7 +91,8 @@ class TrayController {
     }
 
     await _trayIconService.setSpeaking();
-    _translateThenShow(text, generation);
+    await _appWindowController.showOriginal(text);
+    _translateAndUpdate(text, generation);
 
     final ttsResult = await _ttsRepository.speak(text);
     if (_generation != generation) return;
@@ -100,15 +103,14 @@ class TrayController {
     }
   }
 
-  // Translates text, shows the window, then (if AI enabled) fetches explanation.
-  Future<void> _translateThenShow(String text, int generation) async {
+  // Fetches translation then AI explanation, updating the already-visible window.
+  Future<void> _translateAndUpdate(String text, int generation) async {
     final translateResult = await _translateService.translate(text);
     if (_generation != generation) return;
     if (translateResult is! Success<String>) return;
 
     final aiEnabled = GetIt.I<SettingsService>().aiEnabled;
-    await _appWindowController.showTranslation(
-      text,
+    await _appWindowController.updateTranslation(
       translateResult.value,
       aiPending: aiEnabled,
     );
@@ -122,12 +124,9 @@ class TrayController {
     if (_generation != generation) return;
     _aiCancelToken = null;
     await _trayIconService.stopThinking();
-    if (aiResult is Success<String>) {
-      await _appWindowController.updateExplanation(aiResult.value);
-    } else {
-      // AI failed — clear the thinking indicator so the window doesn't hang.
-      await _appWindowController.updateExplanation('');
-    }
+    await _appWindowController.updateExplanation(
+      aiResult is Success<String> ? aiResult.value : '',
+    );
   }
 
   void dispose() {

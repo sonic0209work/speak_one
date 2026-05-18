@@ -54,6 +54,7 @@ class _ExplanationPageState extends State<ExplanationPage> {
 
   void _onCtrlChanged() {
     if (!mounted) return;
+    if (_ctrl.isAiThinking && _dotsTimer == null) _startDots();
     if (!_ctrl.isAiThinking) _stopDots();
     setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) => _resizeToContent());
@@ -102,10 +103,12 @@ class _ExplanationPageState extends State<ExplanationPage> {
     final original = _ctrl.original;
     final translation = _ctrl.translation;
     final explanation = _ctrl.explanation;
+    final isTranslating = _ctrl.isTranslating;
     final isThinking = _ctrl.isAiThinking;
     final preview =
         original.length > 50 ? '${original.substring(0, 50)}…' : original;
     final dots = '.' * (_dotCount % 3 + 1);
+    final dimColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45);
 
     return Scaffold(
       appBar: AppBar(
@@ -116,13 +119,7 @@ class _ExplanationPageState extends State<ExplanationPage> {
             child: Center(
               child: Text(
                 '$_remaining s',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.5),
-                ),
+                style: TextStyle(fontSize: 12, color: dimColor),
               ),
             ),
           ),
@@ -132,39 +129,49 @@ class _ExplanationPageState extends State<ExplanationPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          key: _contentKey,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Translation
-            SelectableText(
-              translation,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, height: 1.5),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isTranslating)
+            const LinearProgressIndicator(minHeight: 2),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                key: _contentKey,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (translation.isNotEmpty)
+                    SelectableText(
+                      translation,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w500, height: 1.5),
+                    ),
+                  if (isThinking || explanation.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Divider(color: Theme.of(context).dividerColor),
+                    const SizedBox(height: 8),
+                    if (isThinking)
+                      Text(
+                        'thinking$dots',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: dimColor,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      )
+                    else
+                      SelectableText(
+                        explanation,
+                        style: const TextStyle(fontSize: 14, height: 1.6),
+                      ),
+                  ],
+                ],
+              ),
             ),
-            // AI section
-            if (isThinking || explanation.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Divider(color: Theme.of(context).dividerColor),
-              const SizedBox(height: 8),
-              if (isThinking)
-                Text(
-                  'thinking$dots',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
-                    fontStyle: FontStyle.italic,
-                  ),
-                )
-              else
-                SelectableText(
-                  explanation,
-                  style: const TextStyle(fontSize: 14, height: 1.6),
-                ),
-            ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

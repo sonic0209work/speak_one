@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:get_it/get_it.dart';
+
 import '../../../core/types/result.dart';
+import '../../settings/settings_service.dart';
 import 'ocr_datasource.dart';
 import 'screenshot_datasource.dart';
 
@@ -21,7 +24,8 @@ class OcrCaptureService {
       final screenshotResult = await _screenshot.capture(tmpPath);
       if (screenshotResult is Failure) return screenshotResult;
 
-      return await _ocr.extract(tmpPath);
+      final sourceLang = GetIt.I<SettingsService>().sourceLang;
+      return await _ocr.extract(tmpPath, sourceLang: sourceLang);
     } finally {
       final file = File(tmpPath);
       if (await file.exists()) await file.delete();

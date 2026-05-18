@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../autostart/autostart_service.dart';
+import '../../hotkey/data/hotkey_repository.dart';
+import '../../hotkey/presentation/hotkey_recorder_widget.dart';
 import '../settings_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -13,8 +16,16 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  static const _windowWidth = 420.0;
+  static const _appBarH = 56.0;
+  static const _paddingV = 40.0; // fromLTRB(24, 16, 24, 24) → 16 + 24
+  static const _minH = 200.0;
+  static const _maxH = 720.0;
+
+  final _contentKey = GlobalKey();
   final _settings = GetIt.I<SettingsService>();
   final _autostart = GetIt.I<AutostartService>();
+  final _hotkeyRepo = GetIt.I<HotkeyRepository>();
 
   static const _langOptions = [
     ('auto', 'Auto-detect'),
@@ -34,6 +45,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _ollamaUrl;
   late TextEditingController _ollamaModel;
   bool _autostartEnabled = false;
+  late HotKey _hotkeyConfig;
 
   @override
   void initState() {
@@ -43,6 +55,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _aiEnabled = _settings.aiEnabled;
     _ollamaUrl = TextEditingController(text: _settings.ollamaUrl);
     _ollamaModel = TextEditingController(text: _settings.ollamaModel);
+    _hotkeyConfig = _settings.hotkeyConfig;
     _autostart.isEnabled().then((v) {
       if (mounted) setState(() => _autostartEnabled = v);
     });
@@ -61,6 +74,8 @@ class _SettingsPageState extends State<SettingsPage> {
     await _settings.setAiEnabled(_aiEnabled);
     await _settings.setOllamaUrl(_ollamaUrl.text.trim());
     await _settings.setOllamaModel(_ollamaModel.text.trim());
+    await _settings.setHotkeyConfig(_hotkeyConfig);
+    await _hotkeyRepo.update(_hotkeyConfig);
     if (_autostartEnabled) {
       await _autostart.enable();
     } else {
@@ -69,13 +84,23 @@ class _SettingsPageState extends State<SettingsPage> {
     await windowManager.hide();
   }
 
+  Future<void> _resizeToContent() async {
+    final box = _contentKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final h = (_appBarH + _paddingV + box.size.height).clamp(_minH, _maxH);
+    await windowManager.setMinimumSize(Size(_windowWidth, h));
+    await windowManager.setSize(Size(_windowWidth, h));
+  }
+
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resizeToContent());
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
         child: Column(
+          key: _contentKey,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _sectionLabel('Translation'),
@@ -111,6 +136,20 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 12),
               _TextField(label: 'Model', controller: _ollamaModel),
             ],
+            const SizedBox(height: 20),
+            _sectionLabel('Capture'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const SizedBox(width: 140, child: Text('Capture hotkey')),
+                Expanded(
+                  child: HotkeyRecorderWidget(
+                    value: _hotkeyConfig,
+                    onChanged: (v) => setState(() => _hotkeyConfig = v),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
             _sectionLabel('System'),
             const SizedBox(height: 8),

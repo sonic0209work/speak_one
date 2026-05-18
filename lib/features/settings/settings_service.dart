@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:flutter/services.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsService {
@@ -6,11 +10,18 @@ class SettingsService {
   static const _keyAiEnabled = 'ai_enabled';
   static const _keyOllamaUrl = 'ollama_url';
   static const _keyOllamaModel = 'ollama_model';
+  static const _keyHotkey = 'hotkey_config';
 
   static const _defaultSource = 'auto';
   static const _defaultTarget = 'zh-TW';
   static const _defaultOllamaUrl = 'http://localhost:11434';
   static const _defaultOllamaModel = 'qwen3:1.7b';
+
+  static final kDefaultHotkey = HotKey(
+    key: PhysicalKeyboardKey.keyS,
+    modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
+    scope: HotKeyScope.system,
+  );
 
   SharedPreferences? _prefs;
 
@@ -29,4 +40,17 @@ class SettingsService {
   Future<void> setAiEnabled(bool v) async => _prefs?.setBool(_keyAiEnabled, v);
   Future<void> setOllamaUrl(String v) async => _prefs?.setString(_keyOllamaUrl, v);
   Future<void> setOllamaModel(String v) async => _prefs?.setString(_keyOllamaModel, v);
+
+  HotKey get hotkeyConfig {
+    final json = _prefs?.getString(_keyHotkey);
+    if (json == null) return kDefaultHotkey;
+    try {
+      return HotKey.fromJson(jsonDecode(json) as Map<String, dynamic>);
+    } catch (_) {
+      return kDefaultHotkey;
+    }
+  }
+
+  Future<void> setHotkeyConfig(HotKey v) async =>
+      _prefs?.setString(_keyHotkey, jsonEncode(v.toJson()));
 }

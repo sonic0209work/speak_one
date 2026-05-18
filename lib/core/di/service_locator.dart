@@ -4,7 +4,9 @@ import '../../app/app_window_controller.dart';
 import '../services/isolate_service.dart';
 import '../../features/ai_explain/data/ollama_service.dart';
 import '../../features/autostart/autostart_service.dart';
+import '../../features/hotkey/data/hotkey_repository.dart';
 import '../../features/notification/notification_service.dart';
+import '../../features/ocr_capture/data/ocr_capture_service.dart';
 import '../../features/settings/settings_service.dart';
 import '../../features/translate/data/translate_service.dart';
 import '../../features/tray/tray_icon_service.dart';
@@ -25,4 +27,9 @@ Future<void> setupServiceLocator() async {
   gi.registerSingleton<AutostartService>(AutostartService());
   gi.registerSingleton<AppWindowController>(AppWindowController());
   gi.registerSingleton<TrayIconService>(TrayIconService());
+
+  final hotkeyRepo = HotkeyRepository();
+  await hotkeyRepo.init(settings.hotkeyConfig);
+  gi.registerSingleton<HotkeyRepository>(hotkeyRepo);
+  gi.registerSingleton<OcrCaptureService>(OcrCaptureService());
 }

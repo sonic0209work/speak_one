@@ -19,3 +19,8 @@ final class ParseException extends AppException {
 final class StorageException extends AppException {
   const StorageException(super.message);
 }
+
+final class OcrCaptureException extends AppException {
+  const OcrCaptureException(super.message, {this.isSilent = false});
+  final bool isSilent;
+}

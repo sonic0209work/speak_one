@@ -8,7 +8,9 @@ import 'app/panel_app.dart';
 import 'core/di/service_locator.dart';
 import 'core/services/isolate_service.dart';
 import 'features/ai_explain/data/ollama_service.dart';
+import 'features/hotkey/data/hotkey_repository.dart';
 import 'features/notification/notification_service.dart';
+import 'features/ocr_capture/data/ocr_capture_service.dart';
 import 'features/translate/data/translate_service.dart';
 import 'features/tray/tray_controller.dart';
 import 'features/tray/tray_icon_service.dart';
@@ -48,6 +50,8 @@ void main() async {
       notificationService: GetIt.I<NotificationService>(),
       ollamaService: GetIt.I<OllamaService>(),
       appWindowController: appWindowController,
+      hotkeyRepository: GetIt.I<HotkeyRepository>(),
+      ocrCaptureService: GetIt.I<OcrCaptureService>(),
     ),
   );
 

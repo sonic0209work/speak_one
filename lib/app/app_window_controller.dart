@@ -16,7 +16,7 @@ class AppWindowController extends ChangeNotifier {
   String get explanation => _explanation;
   int get explanationGeneration => _explanationGeneration;
 
-  static const _settingsSize = Size(420, 520);
+  static const _settingsSize = Size(420, 400);
   static const _explanationSize = Size(420, 340);
 
   Future<void> showSettings() async {

@@ -15,7 +15,8 @@ class ExplanationPage extends StatefulWidget {
   State<ExplanationPage> createState() => _ExplanationPageState();
 }
 
-class _ExplanationPageState extends State<ExplanationPage> {
+class _ExplanationPageState extends State<ExplanationPage>
+    with SingleTickerProviderStateMixin {
   static const _autoDismissSecs = 20;
   static const _windowWidth = 420.0;
   static const _appBarH = 58.0; // 56 toolbar + 2 countdown bar
@@ -24,13 +25,15 @@ class _ExplanationPageState extends State<ExplanationPage> {
   static const _maxH = 560.0;
   static const _fadeDuration = Duration(milliseconds: 250);
 
-  late int _remaining;
+  late AnimationController _countdownCtrl;
   late String _activeLang;
-  Timer? _dismissTimer;
   Timer? _dotsTimer;
-  Timer? _resizeDebounce;
   int _dotCount = 0;
-  bool _hovered = false;
+  // Throttle state: at most one resize per 80ms, postFrameCallback ensures
+  // layout is complete before we read the content box size.
+  bool _resizeScheduled = false;
+  bool _resizeCooling = false;
+  bool _resizePending = false;
   bool _pinned = false;
   bool _translationHovered = false;
   final _contentKey = GlobalKey();
@@ -40,14 +43,16 @@ class _ExplanationPageState extends State<ExplanationPage> {
   @override
   void initState() {
     super.initState();
-    _remaining = _autoDismissSecs;
+    _countdownCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: _autoDismissSecs),
+      value: 1.0,
+    )
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.dismissed) _close();
+      })
+      ..reverse();
     _activeLang = GetIt.I<SettingsService>().targetLang;
-    _dismissTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      if (_hovered || _pinned) return;
-      setState(() => _remaining--);
-      if (_remaining <= 0) _close();
-    });
     _ctrl.addListener(_onCtrlChanged);
     if (_ctrl.isAiThinking) _startDots();
     WidgetsBinding.instance.addPostFrameCallback((_) => _resizeToContent());
@@ -56,9 +61,8 @@ class _ExplanationPageState extends State<ExplanationPage> {
   @override
   void dispose() {
     _ctrl.removeListener(_onCtrlChanged);
-    _dismissTimer?.cancel();
+    _countdownCtrl.dispose();
     _dotsTimer?.cancel();
-    _resizeDebounce?.cancel();
     super.dispose();
   }
 
@@ -71,9 +75,26 @@ class _ExplanationPageState extends State<ExplanationPage> {
   }
 
   void _scheduleResize() {
-    _resizeDebounce?.cancel();
-    _resizeDebounce = Timer(const Duration(milliseconds: 80), () {
-      if (mounted) _resizeToContent();
+    if (_resizeCooling) {
+      // A resize just ran; mark pending so the cooldown callback fires again.
+      _resizePending = true;
+      return;
+    }
+    if (_resizeScheduled) return; // postFrameCallback already queued
+    _resizeScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _resizeScheduled = false;
+      if (!mounted) return;
+      _resizeCooling = true;
+      _resizePending = false;
+      await _resizeToContent();
+      // 80ms cooldown — limits window manager calls to ~12/sec during streaming.
+      await Future.delayed(const Duration(milliseconds: 80));
+      _resizeCooling = false;
+      if (mounted && _resizePending) {
+        _resizePending = false;
+        _scheduleResize();
+      }
     });
   }
 
@@ -119,11 +140,10 @@ class _ExplanationPageState extends State<ExplanationPage> {
     final preview = original.length > 50 ? '${original.substring(0, 50)}…' : original;
     final dots = '.' * (_dotCount % 3 + 1);
     final scheme = Theme.of(context).colorScheme;
-    final progressValue = (_remaining / _autoDismissSecs).clamp(0.0, 1.0);
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) => _countdownCtrl.stop(),
+      onExit: (_) { if (!_pinned) _countdownCtrl.reverse(); },
       child: Scaffold(
         appBar: AppBar(
           title: Text(preview, style: const TextStyle(fontSize: 13)),
@@ -132,12 +152,13 @@ class _ExplanationPageState extends State<ExplanationPage> {
             child: LayoutBuilder(
               builder: (ctx, constraints) => Align(
                 alignment: Alignment.centerLeft,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 800),
-                  curve: Curves.linear,
-                  width: constraints.maxWidth * progressValue,
-                  height: 2,
-                  color: Theme.of(ctx).colorScheme.primary,
+                child: AnimatedBuilder(
+                  animation: _countdownCtrl,
+                  builder: (_, _) => Container(
+                    width: constraints.maxWidth * _countdownCtrl.value,
+                    height: 2,
+                    color: Theme.of(ctx).colorScheme.primary,
+                  ),
                 ),
               ),
             ),
@@ -150,7 +171,13 @@ class _ExplanationPageState extends State<ExplanationPage> {
               ),
               onPressed: () => setState(() {
                 _pinned = !_pinned;
-                if (_pinned) _remaining = _autoDismissSecs;
+                if (_pinned) {
+                  _countdownCtrl
+                    ..stop()
+                    ..value = 1.0;
+                } else {
+                  _countdownCtrl.reverse();
+                }
               }),
               tooltip: _pinned ? 'Unpin' : 'Pin',
             ),

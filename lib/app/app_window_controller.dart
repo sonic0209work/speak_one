@@ -12,10 +12,12 @@ class AppWindowController extends ChangeNotifier {
   bool _isTranslating = false;
   bool _isAiThinking = false;
   int _explanationGeneration = 0;
-  // True when the window was successfully anchored below a text selection.
-  // While true, repositionForSize skips repositioning so the window grows
-  // downward in-place rather than jumping to bottom-right on every resize.
+  // Set when the panel is anchored near the cursor.
+  // repositionForSize uses these to keep the panel pinned to the cursor edge.
   bool _anchoredNearSelection = false;
+  bool _anchorAboveCursor = false; // true → bottom of panel tracks cursor
+  double _anchorX = 0.0;
+  double _anchorCursorY = 0.0;
 
   /// Set by TrayController to handle language-switch retranslation requests.
   Future<void> Function(String targetLang)? onRetranslateRequested;
@@ -42,6 +44,9 @@ class AppWindowController extends ChangeNotifier {
     _view = WindowView.explanation;
     _explanationGeneration++;
     _anchoredNearSelection = false;
+    _anchorAboveCursor = false;
+    _anchorX = 0;
+    _anchorCursorY = 0;
     notifyListeners();
 
     await windowManager.setMinimumSize(_explanationSize);
@@ -64,7 +69,15 @@ class AppWindowController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Called when AI explanation is ready.
+  // Called with each streamed token delta; switches from "thinking" to text on first chunk.
+  void streamExplanationChunk(String fullTextSoFar) {
+    if (_view != WindowView.explanation) return;
+    _explanation = fullTextSoFar;
+    _isAiThinking = false;
+    notifyListeners();
+  }
+
+  // Called when AI explanation is fully received (or failed with empty string).
   Future<void> updateExplanation(String explanation) async {
     if (_view != WindowView.explanation) return;
     _explanation = explanation;
@@ -83,11 +96,18 @@ class AppWindowController extends ChangeNotifier {
   }
 
   /// Called by ExplanationPage on every content resize.
-  /// If the window was anchored below the selection it grows downward in-place;
-  /// otherwise it is repositioned to the bottom-right corner.
   Future<void> repositionForSize(double windowH) async {
-    if (_anchoredNearSelection) return;
-    await _positionBottomRight(Size(_explanationSize.width, windowH));
+    if (!_anchoredNearSelection) {
+      await _positionBottomRight(Size(_explanationSize.width, windowH));
+      return;
+    }
+    if (_anchorAboveCursor) {
+      // Keep the bottom of the panel just above the cursor as it grows.
+      const gap = 12.0;
+      final y = (_anchorCursorY - gap - windowH).clamp(0.0, double.infinity);
+      await windowManager.setPosition(Offset(_anchorX, y));
+    }
+    // Anchored below: grows downward naturally — no repositioning needed.
   }
 
   Future<void> showSettings() async {
@@ -105,12 +125,14 @@ class AppWindowController extends ChangeNotifier {
     _isTranslating = false;
     _isAiThinking = false;
     _anchoredNearSelection = false;
+    _anchorAboveCursor = false;
+    _anchorX = 0;
+    _anchorCursorY = 0;
     notifyListeners();
     await windowManager.hide();
   }
 
-  // Positions the panel just below the cursor position.
-  // Falls back to bottom-right if there is not enough vertical space.
+  // Positions the panel near the cursor, flipping above when space is tight.
   Future<void> _positionNearCursor(double cursorX, double cursorY) async {
     try {
       final display = await screenRetriever.getPrimaryDisplay();
@@ -120,20 +142,31 @@ class AppWindowController extends ChangeNotifier {
       const taskbar = 48.0;
       final panelW = _explanationSize.width;
       final panelH = _explanationSize.height; // initial height (80px)
+      final x = cursorX.clamp(pad, screen.width - panelW - pad);
+      final spaceBelow = screen.height - taskbar - cursorY - gap;
+      final spaceAbove = cursorY - gap;
 
-      final belowY = cursorY + gap;
-
-      // Anchor below cursor as long as the initial panel height fits.
-      // The panel may grow past the screen edge later; that is acceptable.
-      if (belowY + panelH + pad <= screen.height - taskbar) {
-        final x = cursorX.clamp(pad, screen.width - panelW - pad);
-        await windowManager.setPosition(Offset(x, belowY));
+      if (spaceBelow >= panelH) {
+        // Enough room below — anchor below, panel grows downward.
+        await windowManager.setPosition(Offset(x, cursorY + gap));
         _anchoredNearSelection = true;
+        _anchorAboveCursor = false;
+        _anchorX = x;
+        _anchorCursorY = cursorY;
+        return;
+      }
+
+      if (spaceAbove >= panelH) {
+        // Not enough below — flip above cursor, panel grows upward.
+        await windowManager.setPosition(Offset(x, cursorY - gap - panelH));
+        _anchoredNearSelection = true;
+        _anchorAboveCursor = true;
+        _anchorX = x;
+        _anchorCursorY = cursorY;
         return;
       }
     } catch (_) {}
 
-    // Fallback: standard bottom-right
     await _positionBottomRight(_explanationSize);
   }
 

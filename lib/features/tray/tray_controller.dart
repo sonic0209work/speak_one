@@ -142,13 +142,20 @@ class TrayController {
     _aiCancelToken?.cancel();
     final token = _aiCancelToken = CancelToken();
     _trayIconService.startThinking();
-    final aiResult = await _ollamaService.explain(text, cancelToken: token);
+    final aiBuffer = StringBuffer();
+    try {
+      await for (final chunk in _ollamaService.explainStream(text, cancelToken: token)) {
+        if (_generation != generation) return;
+        aiBuffer.write(chunk);
+        _appWindowController.streamExplanationChunk(aiBuffer.toString());
+      }
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) return;
+    }
     if (_generation != generation) return;
     _aiCancelToken = null;
     await _trayIconService.stopThinking();
-    await _appWindowController.updateExplanation(
-      aiResult is Success<String> ? aiResult.value : '',
-    );
+    if (aiBuffer.isEmpty) await _appWindowController.updateExplanation('');
     _notificationService.playDing();
   }
 

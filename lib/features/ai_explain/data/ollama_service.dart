@@ -1,9 +1,9 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 
-import '../../../core/types/result.dart';
 import '../../../features/settings/settings_service.dart';
-import '../domain/failures/ai_explain_failure.dart';
 
 class OllamaService {
   OllamaService()
@@ -16,9 +16,12 @@ class OllamaService {
 
   static final _cjkRegex = RegExp(r'[一-鿿㐀-䶿]');
 
-  Future<Result<String>> explain(String text, {CancelToken? cancelToken}) async {
+  /// Streams text deltas from Ollama as the model generates tokens.
+  /// Each yielded [String] is a new delta to be appended to the display.
+  /// The stream closes normally on completion or cancellation.
+  Stream<String> explainStream(String text, {CancelToken? cancelToken}) async* {
     final settings = GetIt.I<SettingsService>();
-    if (!settings.aiEnabled) return const Failure(AiDisabled());
+    if (!settings.aiEnabled) return;
 
     final baseUrl = settings.ollamaUrl;
     final model = settings.ollamaModel;
@@ -37,30 +40,34 @@ Explain briefly (3–5 lines):
 Respond entirely in $responseLang.''';
 
     try {
-      final response = await _dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<ResponseBody>(
         '$baseUrl/api/chat',
         data: {
           'model': model,
           'messages': [
             {'role': 'user', 'content': prompt}
           ],
-          'stream': false,
+          'stream': true,
         },
+        options: Options(responseType: ResponseType.stream),
         cancelToken: cancelToken,
       );
-      final content =
-          response.data?['message']?['content'] as String?;
-      if (content != null && content.isNotEmpty) {
-        return Success(content.trim());
+
+      final lines = response.data!.stream
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+
+      await for (final line in lines) {
+        if (line.isEmpty) continue;
+        final json = jsonDecode(line) as Map<String, dynamic>;
+        if (json['done'] as bool? ?? false) break;
+        final delta = (json['message']?['content'] as String?) ?? '';
+        if (delta.isNotEmpty) yield delta;
       }
-      return const Failure(AiParseError());
     } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        return Failure(AiNetworkError('cancelled'));
-      }
-      return Failure(AiNetworkError(e.message ?? 'network error'));
-    } catch (_) {
-      return const Failure(AiParseError());
+      if (e.type != DioExceptionType.cancel) rethrow;
+      // cancelled — stream closes silently
     }
   }
 

@@ -5,7 +5,7 @@ import '../../../core/types/result.dart';
 
 class OcrDatasource {
   // Maps speak_one lang codes → tesseract language codes.
-  // English is always appended (via +eng) to handle mixed-language text.
+  // English is always appended (+eng) to handle mixed-language text.
   static const _langMap = {
     'zh-TW': 'chi_tra+eng',
     'zh-CN': 'chi_sim+eng',
@@ -15,7 +15,7 @@ class OcrDatasource {
     'de': 'deu+eng',
     'es': 'spa+eng',
     'en': 'eng',
-    // 'auto': omitted — falls back to tesseract default (eng only)
+    'auto': 'chi_tra+chi_sim+eng',
   };
 
   Future<Result<String>> extract(String imagePath, {String sourceLang = 'auto'}) async {
@@ -27,19 +27,27 @@ class OcrDatasource {
     }
 
     final tessLang = _langMap[sourceLang];
-    final args = [
-      imagePath,
-      'stdout',
-      if (tessLang != null) ...['-l', tessLang],
-    ];
-
-    final result = await Process.run('tesseract', args);
-    if (result.exitCode != 0) {
-      return Failure(
-        OcrCaptureException('OCR failed: ${result.stderr}'),
-      );
+    final result = await _runTesseract(imagePath, tessLang);
+    if (result.exitCode == 0) {
+      return Success((result.stdout as String).trim());
     }
 
-    return Success((result.stdout as String).trim());
+    // Language pack missing or other error — retry with eng-only fallback.
+    if (tessLang != null && tessLang != 'eng') {
+      final retry = await _runTesseract(imagePath, 'eng');
+      if (retry.exitCode == 0) {
+        return Success((retry.stdout as String).trim());
+      }
+    }
+
+    return Failure(OcrCaptureException('OCR failed: ${result.stderr}'));
+  }
+
+  Future<ProcessResult> _runTesseract(String imagePath, String? lang) {
+    return Process.run('tesseract', [
+      imagePath,
+      'stdout',
+      if (lang != null) ...['-l', lang],
+    ]);
   }
 }

@@ -39,6 +39,8 @@ class TrayController {
     final filter = SelectionFilterService();
     _atSpiSubscription = filter.filter(isolateService.events).listen(_onSelection);
     _hotkeySubscription = hotkeyRepository.activations.listen((_) => _handleCapture());
+    _appWindowController.onRetranslateRequested = _retranslateWith;
+    _appWindowController.addListener(_onWindowChanged);
   }
 
   final TrayIconService _trayIconService;
@@ -59,7 +61,7 @@ class TrayController {
     await _ttsRepository.stop();
 
     // Open window immediately, then fill translation + AI in background.
-    await _appWindowController.showOriginal(event.text);
+    await _appWindowController.showOriginal(event.text, cursorX: event.cursorX, cursorY: event.cursorY);
     _translateAndUpdate(event.text, generation);
 
     final result = await _ttsRepository.speak(event.text);
@@ -90,8 +92,16 @@ class TrayController {
       return;
     }
 
+    // Cursor is now at the corner of the captured region — use it to anchor the panel.
+    final cursorPos = await AccessibilityPlugin.queryCursorPosition();
+    if (_generation != generation) return;
+
     await _trayIconService.setSpeaking();
-    await _appWindowController.showOriginal(text);
+    await _appWindowController.showOriginal(
+      text,
+      cursorX: cursorPos?.$1,
+      cursorY: cursorPos?.$2,
+    );
     _translateAndUpdate(text, generation);
 
     final ttsResult = await _ttsRepository.speak(text);
@@ -101,6 +111,15 @@ class TrayController {
     } else {
       await _trayIconService.setError();
     }
+  }
+
+  void _onWindowChanged() {
+    if (_appWindowController.view != WindowView.none) return;
+    ++_generation;
+    _aiCancelToken?.cancel();
+    _aiCancelToken = null;
+    _trayIconService.stopThinking();
+    _trayIconService.setIdle();
   }
 
   // Fetches translation then AI explanation, updating the already-visible window.
@@ -115,7 +134,10 @@ class TrayController {
       aiPending: aiEnabled,
     );
 
-    if (!aiEnabled) return;
+    if (!aiEnabled) {
+      _notificationService.playDing();
+      return;
+    }
 
     _aiCancelToken?.cancel();
     final token = _aiCancelToken = CancelToken();
@@ -127,10 +149,28 @@ class TrayController {
     await _appWindowController.updateExplanation(
       aiResult is Success<String> ? aiResult.value : '',
     );
+    _notificationService.playDing();
+  }
+
+  // Retranslates the current original text with a specific target language.
+  Future<void> _retranslateWith(String targetLang) async {
+    final generation = _generation;
+    final text = _appWindowController.original;
+    if (text.isEmpty) return;
+
+    final result = await _translateService.translate(text, targetLang: targetLang);
+    if (_generation != generation) return;
+
+    await _appWindowController.updateTranslation(
+      result is Success<String> ? result.value : '',
+      aiPending: false,
+    );
+    _notificationService.playDing();
   }
 
   void dispose() {
     _atSpiSubscription.cancel();
     _hotkeySubscription.cancel();
+    _appWindowController.removeListener(_onWindowChanged);
   }
 }

@@ -15,11 +15,18 @@ final class TextSelectionEvent {
   const TextSelectionEvent({
     required this.text,
     required this.bounds,
+    this.cursorX,
+    this.cursorY,
     required this.timestamp,
   });
 
   final String text;
   final SelectionRect bounds;
+  /// Mouse cursor X coordinate at the moment selection completed (screen coords).
+  /// Null if not available (e.g. Wayland without pointer query support).
+  final double? cursorX;
+  /// Mouse cursor Y coordinate at the moment selection completed (screen coords).
+  final double? cursorY;
   final DateTime timestamp;
 
   factory TextSelectionEvent.fromJson(Map<String, dynamic> json) {
@@ -31,6 +38,8 @@ final class TextSelectionEvent {
         (json['width'] as num).toDouble(),
         (json['height'] as num).toDouble(),
       ),
+      cursorX: (json['cursorX'] as num?)?.toDouble(),
+      cursorY: (json['cursorY'] as num?)?.toDouble(),
       timestamp: DateTime.parse(json['timestamp'] as String),
     );
   }
@@ -41,10 +50,12 @@ final class TextSelectionEvent {
         'top': bounds.top,
         'width': bounds.width,
         'height': bounds.height,
+        if (cursorX != null) 'cursorX': cursorX,
+        if (cursorY != null) 'cursorY': cursorY,
         'timestamp': timestamp.toUtc().toIso8601String(),
       };
 
   @override
   String toString() =>
-      'TextSelectionEvent(text: "$text", bounds: $bounds)';
+      'TextSelectionEvent(text: "$text", bounds: $bounds, cursor: ($cursorX, $cursorY))';
 }

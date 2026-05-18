@@ -256,11 +256,17 @@ void _atspiIsolate(_IsolateSetup setup) {
       rect.ref.width.toDouble(),
       rect.ref.height.toDouble(),
     );
+    // Approximate cursor as the trailing corner of the selection bounding box
+    // (Wayland does not expose the raw pointer position via AT-SPI).
+    final cursorX = bounds.width > 0 ? bounds.left + bounds.width : null;
+    final cursorY = bounds.height > 0 ? bounds.top + bounds.height : null;
     calloc.free(rect);
 
     port.send(TextSelectionEvent(
       text: text,
       bounds: bounds,
+      cursorX: cursorX,
+      cursorY: cursorY,
       timestamp: DateTime.now().toUtc(),
     ));
   }

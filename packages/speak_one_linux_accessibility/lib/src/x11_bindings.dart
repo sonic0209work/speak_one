@@ -216,6 +216,29 @@ typedef _XcbQueryExtensionReplyNative = Pointer<XcbQueryExtensionReply> Function
 typedef _XcbQueryExtensionReplyFn = Pointer<XcbQueryExtensionReply> Function(
     Pointer<XcbConnection>, int, Pointer<Void>);
 
+// xcb_query_pointer_reply_t
+final class XcbQueryPointerReply extends Struct {
+  @Uint8()  external int responseType;
+  @Uint8()  external int sameScreen;
+  @Uint16() external int sequence;
+  @Uint32() external int length;
+  @Uint32() external int root;
+  @Uint32() external int child;
+  @Int16()  external int rootX;
+  @Int16()  external int rootY;
+  @Int16()  external int winX;
+  @Int16()  external int winY;
+  @Uint16() external int mask;
+}
+
+typedef _XcbQueryPointerNative = Uint32 Function(Pointer<XcbConnection>, Uint32);
+typedef _XcbQueryPointer = int Function(Pointer<XcbConnection>, int);
+
+typedef _XcbQueryPointerReplyNative = Pointer<XcbQueryPointerReply> Function(
+    Pointer<XcbConnection>, Uint32, Pointer<Void>);
+typedef _XcbQueryPointerReplyFn = Pointer<XcbQueryPointerReply> Function(
+    Pointer<XcbConnection>, int, Pointer<Void>);
+
 // XFixes
 typedef _XcbXfixesQueryVersionNative = Uint32 Function(
     Pointer<XcbConnection>, Uint32, Uint32);
@@ -325,6 +348,13 @@ void _x11Isolate(_IsolateSetup setup) {
       _XcbCreateWindowNative,
       _XcbCreateWindow>('xcb_create_window');
 
+  final xcbQueryPointer = xcbLib.lookupFunction<
+      _XcbQueryPointerNative,
+      _XcbQueryPointer>('xcb_query_pointer');
+  final xcbQueryPointerReplyFn = xcbLib.lookupFunction<
+      _XcbQueryPointerReplyNative,
+      _XcbQueryPointerReplyFn>('xcb_query_pointer_reply');
+
   // Bind xfixes functions
   final xfixesQueryVersion = xfixesLib.lookupFunction<
       _XcbXfixesQueryVersionNative,
@@ -394,6 +424,10 @@ void _x11Isolate(_IsolateSetup setup) {
   xfixesSelectSelectionInput(conn, winId, primaryAtom, 1);
   xcbFlush(conn);
 
+  // Cursor position captured at XFixes notify time, reused when text arrives.
+  double? pendingCursorX;
+  double? pendingCursorY;
+
   // Event loop — xcb_wait_for_event is blocking; this is fine in a Dart Isolate
   while (true) {
     final event = xcbWaitForEvent(conn);
@@ -405,6 +439,20 @@ void _x11Isolate(_IsolateSetup setup) {
     if (eventType == xfixesFirstEvent) {
       final selEvent = event.cast<XcbXfixesSelectionNotifyEvent>();
       if (selEvent.ref.selection == primaryAtom) {
+        // Capture mouse cursor position immediately — this is the moment the
+        // user finished selecting (released mouse button).
+        final pointerCookie = xcbQueryPointer(conn, rootWindow);
+        xcbFlush(conn);
+        final pointerReply = xcbQueryPointerReplyFn(conn, pointerCookie, nullptr);
+        if (pointerReply != nullptr) {
+          pendingCursorX = pointerReply.ref.rootX.toDouble();
+          pendingCursorY = pointerReply.ref.rootY.toDouble();
+          calloc.free(pointerReply);
+        } else {
+          pendingCursorX = null;
+          pendingCursorY = null;
+        }
+
         // Request the selection content converted to UTF8_STRING
         // XCB_CURRENT_TIME = 0
         xcbConvertSelection(
@@ -425,7 +473,9 @@ void _x11Isolate(_IsolateSetup setup) {
           if (text.isNotEmpty) {
             port.send(TextSelectionEvent(
               text: text,
-              bounds: const SelectionRect.zero(), // X11 gives no bounding box
+              bounds: const SelectionRect.zero(),
+              cursorX: pendingCursorX,
+              cursorY: pendingCursorY,
               timestamp: DateTime.now().toUtc(),
             ));
           }
@@ -438,4 +488,61 @@ void _x11Isolate(_IsolateSetup setup) {
   }
 
   xcbDisconnect(conn);
+}
+
+// ---------------------------------------------------------------------------
+// One-shot cursor position query
+// ---------------------------------------------------------------------------
+
+/// Returns the current screen cursor position via XCB.
+/// Spawns a short-lived isolate; returns null if XCB is unavailable.
+Future<(double, double)?> queryCursorPositionX11() => Isolate.run(_queryCursorOnce);
+
+(double, double)? _queryCursorOnce() {
+  late final DynamicLibrary xcbLib;
+  try {
+    xcbLib = DynamicLibrary.open('libxcb.so.1');
+  } catch (_) {
+    return null;
+  }
+
+  final xcbConnect = xcbLib
+      .lookupFunction<_XcbConnectNative, _XcbConnect>('xcb_connect');
+  final xcbDisconnect = xcbLib
+      .lookupFunction<_XcbDisconnectNative, _XcbDisconnect>('xcb_disconnect');
+  final xcbFlush =
+      xcbLib.lookupFunction<_XcbFlushNative, _XcbFlush>('xcb_flush');
+  final xcbGetSetup =
+      xcbLib.lookupFunction<_XcbGetSetupNative, _XcbGetSetup>('xcb_get_setup');
+  final xcbSetupRootsIterator = xcbLib.lookupFunction<
+      _XcbSetupRootsIteratorNative,
+      _XcbSetupRootsIteratorNative>('xcb_setup_roots_iterator');
+  final xcbQueryPointer = xcbLib
+      .lookupFunction<_XcbQueryPointerNative, _XcbQueryPointer>('xcb_query_pointer');
+  final xcbQueryPointerReplyFn = xcbLib.lookupFunction<
+      _XcbQueryPointerReplyNative,
+      _XcbQueryPointerReplyFn>('xcb_query_pointer_reply');
+
+  final screenNumPtr = calloc<Int32>();
+  final conn = xcbConnect(nullptr, screenNumPtr);
+  calloc.free(screenNumPtr);
+  if (conn == nullptr) return null;
+
+  try {
+    final setup = xcbGetSetup(conn);
+    final iter = xcbSetupRootsIterator(setup);
+    final rootWindow = iter.data.ref.root;
+
+    final cookie = xcbQueryPointer(conn, rootWindow);
+    xcbFlush(conn);
+    final reply = xcbQueryPointerReplyFn(conn, cookie, nullptr);
+    if (reply == nullptr) return null;
+
+    final x = reply.ref.rootX.toDouble();
+    final y = reply.ref.rootY.toDouble();
+    calloc.free(reply);
+    return (x, y);
+  } finally {
+    xcbDisconnect(conn);
+  }
 }

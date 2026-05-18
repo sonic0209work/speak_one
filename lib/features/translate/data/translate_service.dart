@@ -15,9 +15,9 @@ class TranslateService {
 
   static final _cjkRegex = RegExp(r'[一-鿿㐀-䶿]');
 
-  Future<Result<String>> translate(String text) async {
+  Future<Result<String>> translate(String text, {String? targetLang}) async {
     final settings = GetIt.I<SettingsService>();
-    final savedTarget = settings.targetLang;
+    final savedTarget = targetLang ?? settings.targetLang;
     // If user picked a fixed target, use it. Otherwise auto-detect by script.
     final tl = savedTarget.isNotEmpty
         ? savedTarget

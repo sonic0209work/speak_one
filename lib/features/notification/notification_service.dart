@@ -1,6 +1,12 @@
 import 'dart:io';
 
 class NotificationService {
+  Future<void> playDing() async {
+    await Process.run('paplay', [
+      '/usr/share/sounds/freedesktop/stereo/complete.oga',
+    ]);
+  }
+
   Future<void> showMessage(String title, String body) async {
     await Process.run('notify-send', [
       '-a', 'Speak One',

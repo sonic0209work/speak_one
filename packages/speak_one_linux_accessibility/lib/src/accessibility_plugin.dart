@@ -24,6 +24,15 @@ abstract final class AccessibilityPlugin {
     };
   }
 
+  /// Returns the current mouse cursor position on X11.
+  /// Returns null on Wayland (pointer position not directly accessible).
+  static Future<(double, double)?> queryCursorPosition() async {
+    if (DisplayServerDetector.detect() == DisplayServer.x11) {
+      return x11.queryCursorPositionX11();
+    }
+    return null;
+  }
+
   /// Returns the currently detected [DisplayServer].
   static DisplayServer get currentDisplayServer =>
       DisplayServerDetector.detect();

@@ -143,6 +143,7 @@ class TrayController {
     final token = _aiCancelToken = CancelToken();
     _trayIconService.startThinking();
     final aiBuffer = StringBuffer();
+    DioException? aiError;
     try {
       await for (final chunk in _ollamaService.explainStream(text, cancelToken: token)) {
         if (_generation != generation) return;
@@ -151,11 +152,16 @@ class TrayController {
       }
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) return;
+      aiError = e;
     }
     if (_generation != generation) return;
     _aiCancelToken = null;
     await _trayIconService.stopThinking();
-    if (aiBuffer.isEmpty) await _appWindowController.updateExplanation('');
+    if (aiError != null) {
+      _appWindowController.setExplanationError(_ollamaErrorMessage(aiError));
+    } else if (aiBuffer.isEmpty) {
+      await _appWindowController.updateExplanation('');
+    }
     _notificationService.playDing();
   }
 
@@ -174,6 +180,15 @@ class TrayController {
     );
     _notificationService.playDing();
   }
+
+  static String _ollamaErrorMessage(DioException e) => switch (e.type) {
+        DioExceptionType.connectionError ||
+        DioExceptionType.connectionTimeout =>
+          'Ollama 未回應，請確認 ollama serve 正在執行',
+        DioExceptionType.receiveTimeout =>
+          'Ollama 回應逾時，模型可能正在載入中',
+        _ => 'AI 說明失敗（${e.type.name}）',
+      };
 
   void dispose() {
     _atSpiSubscription.cancel();

@@ -85,11 +85,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _resizeToContent() async {
+    if (!mounted) return;
     final box = _contentKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
     final h = (_appBarH + _paddingV + box.size.height).clamp(_minH, _maxH);
     await windowManager.setMinimumSize(Size(_windowWidth, h));
+    if (!mounted) return;
     await windowManager.setSize(Size(_windowWidth, h));
+    if (!mounted) return;
+    await windowManager.setAlignment(Alignment.center);
   }
 
   @override

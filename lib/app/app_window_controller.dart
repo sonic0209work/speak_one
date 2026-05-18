@@ -11,6 +11,7 @@ class AppWindowController extends ChangeNotifier {
   String _explanation = '';
   bool _isTranslating = false;
   bool _isAiThinking = false;
+  bool _isExplanationError = false;
   int _explanationGeneration = 0;
   // Set when the panel is anchored near the cursor.
   // repositionForSize uses these to keep the panel pinned to the cursor edge.
@@ -22,7 +23,6 @@ class AppWindowController extends ChangeNotifier {
   /// Set by TrayController to handle language-switch retranslation requests.
   Future<void> Function(String targetLang)? onRetranslateRequested;
 
-  static const _settingsSize = Size(420, 400);
   static const _explanationSize = Size(420, 80);
 
   WindowView get view => _view;
@@ -31,6 +31,7 @@ class AppWindowController extends ChangeNotifier {
   String get explanation => _explanation;
   bool get isTranslating => _isTranslating;
   bool get isAiThinking => _isAiThinking;
+  bool get isExplanationError => _isExplanationError;
   int get explanationGeneration => _explanationGeneration;
 
   // Opens the window immediately with just the original text.
@@ -41,6 +42,7 @@ class AppWindowController extends ChangeNotifier {
     _explanation = '';
     _isTranslating = true;
     _isAiThinking = false;
+    _isExplanationError = false;
     _view = WindowView.explanation;
     _explanationGeneration++;
     _anchoredNearSelection = false;
@@ -74,6 +76,7 @@ class AppWindowController extends ChangeNotifier {
     if (_view != WindowView.explanation) return;
     _explanation = fullTextSoFar;
     _isAiThinking = false;
+    _isExplanationError = false;
     notifyListeners();
   }
 
@@ -82,6 +85,16 @@ class AppWindowController extends ChangeNotifier {
     if (_view != WindowView.explanation) return;
     _explanation = explanation;
     _isAiThinking = false;
+    _isExplanationError = false;
+    notifyListeners();
+  }
+
+  // Called when AI fails to reach Ollama; shows a user-visible hint.
+  void setExplanationError(String message) {
+    if (_view != WindowView.explanation) return;
+    _explanation = message;
+    _isAiThinking = false;
+    _isExplanationError = true;
     notifyListeners();
   }
 
@@ -113,11 +126,9 @@ class AppWindowController extends ChangeNotifier {
   Future<void> showSettings() async {
     _view = WindowView.settings;
     notifyListeners();
-    await windowManager.setMinimumSize(_settingsSize);
-    await windowManager.setSize(_settingsSize);
-    await windowManager.setAlignment(Alignment.center);
     await windowManager.show();
     await windowManager.focus();
+    // SettingsPage._resizeToContent() handles sizing and centering via postFrameCallback.
   }
 
   Future<void> hideWindow() async {
@@ -129,6 +140,9 @@ class AppWindowController extends ChangeNotifier {
     _anchorX = 0;
     _anchorCursorY = 0;
     notifyListeners();
+    // Clear minimum-size constraint while the window is still mapped —
+    // gtk_widget_set_size_request on a visible window is guaranteed effective.
+    await windowManager.setMinimumSize(const Size(1, 1));
     await windowManager.hide();
   }
 

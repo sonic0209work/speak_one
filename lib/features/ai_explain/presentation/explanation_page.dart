@@ -118,15 +118,17 @@ class _ExplanationPageState extends State<ExplanationPage>
     _ctrl.retranslate(langCode);
   }
 
+  bool get _isActive => mounted && _ctrl.view == WindowView.explanation;
+
   Future<void> _resizeToContent() async {
-    if (!mounted) return;
+    if (!_isActive) return;
     final box = _contentKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
     final h = (_appBarH + _paddingV + box.size.height).clamp(_minH, _maxH);
     await windowManager.setMinimumSize(Size(_windowWidth, h));
-    if (!mounted) return;
+    if (!_isActive) return;
     await windowManager.setSize(Size(_windowWidth, h));
-    if (!mounted) return;
+    if (!_isActive) return;
     await _ctrl.repositionForSize(h);
   }
 
@@ -137,6 +139,7 @@ class _ExplanationPageState extends State<ExplanationPage>
     final explanation = _ctrl.explanation;
     final isTranslating = _ctrl.isTranslating;
     final isThinking = _ctrl.isAiThinking;
+    final isExplanationError = _ctrl.isExplanationError;
     final preview = original.length > 50 ? '${original.substring(0, 50)}…' : original;
     final dots = '.' * (_dotCount % 3 + 1);
     final scheme = Theme.of(context).colorScheme;
@@ -235,7 +238,7 @@ class _ExplanationPageState extends State<ExplanationPage>
                       switchOutCurve: Curves.easeInCubic,
                       transitionBuilder: (child, animation) =>
                           FadeTransition(opacity: animation, child: child),
-                      child: (isThinking || explanation.isNotEmpty)
+                      child: (isThinking || explanation.isNotEmpty || isExplanationError)
                           ? Column(
                               key: const ValueKey('ai-section'),
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,20 +265,31 @@ class _ExplanationPageState extends State<ExplanationPage>
                                             fontStyle: FontStyle.italic,
                                           ),
                                         )
-                                      : Padding(
-                                          key: const ValueKey('explanation'),
-                                          padding:
-                                              const EdgeInsets.only(left: 4),
-                                          child: SelectableText(
-                                            explanation,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              height: 1.6,
-                                              color: scheme.onSurface
-                                                  .withValues(alpha: 0.7),
+                                      : isExplanationError
+                                          ? Text(
+                                              key: const ValueKey('ai-error'),
+                                              explanation,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontStyle: FontStyle.italic,
+                                                color: scheme.error
+                                                    .withValues(alpha: 0.8),
+                                              ),
+                                            )
+                                          : Padding(
+                                              key: const ValueKey('explanation'),
+                                              padding: const EdgeInsets.only(
+                                                  left: 4),
+                                              child: SelectableText(
+                                                explanation,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  height: 1.6,
+                                                  color: scheme.onSurface
+                                                      .withValues(alpha: 0.7),
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                        ),
                                 ),
                               ],
                             )

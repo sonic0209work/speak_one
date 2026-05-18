@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../../app/app_window_controller.dart';
 import '../../autostart/autostart_service.dart';
 import '../../hotkey/data/hotkey_repository.dart';
 import '../../hotkey/presentation/hotkey_recorder_widget.dart';
@@ -26,6 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _settings = GetIt.I<SettingsService>();
   final _autostart = GetIt.I<AutostartService>();
   final _hotkeyRepo = GetIt.I<HotkeyRepository>();
+  final _ctrl = GetIt.I<AppWindowController>();
 
   static const _langOptions = [
     ('auto', 'Auto-detect'),
@@ -81,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
     } else {
       await _autostart.disable();
     }
-    await windowManager.hide();
+    await _ctrl.hideWindow();
   }
 
   Future<void> _resizeToContent() async {

@@ -7,6 +7,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../../app/app_window_controller.dart';
 import '../../settings/settings_service.dart';
+import '../../tts/domain/tts_repository.dart';
 
 class ExplanationPage extends StatefulWidget {
   const ExplanationPage({super.key});
@@ -35,10 +36,12 @@ class _ExplanationPageState extends State<ExplanationPage>
   bool _resizeCooling = false;
   bool _resizePending = false;
   bool _pinned = false;
+  bool _isSpeaking = false;
   bool _translationHovered = false;
   final _contentKey = GlobalKey();
 
   AppWindowController get _ctrl => GetIt.I<AppWindowController>();
+  TtsRepository get _tts => GetIt.I<TtsRepository>();
 
   @override
   void initState() {
@@ -112,6 +115,19 @@ class _ExplanationPageState extends State<ExplanationPage>
 
   void _close() => _ctrl.hideWindow();
 
+  Future<void> _toggleSpeak() async {
+    if (_isSpeaking) {
+      await _tts.stop();
+      if (mounted) setState(() => _isSpeaking = false);
+      return;
+    }
+    final text = _ctrl.original;
+    if (text.isEmpty) return;
+    setState(() => _isSpeaking = true);
+    await _tts.speak(text);
+    if (mounted) setState(() => _isSpeaking = false);
+  }
+
   void _switchLang(String langCode) {
     if (_activeLang == langCode) return;
     setState(() => _activeLang = langCode);
@@ -167,6 +183,14 @@ class _ExplanationPageState extends State<ExplanationPage>
             ),
           ),
           actions: [
+            IconButton(
+              icon: Icon(
+                _isSpeaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
+                size: 18,
+              ),
+              onPressed: _toggleSpeak,
+              tooltip: _isSpeaking ? 'Stop' : 'Speak',
+            ),
             IconButton(
               icon: Icon(
                 _pinned ? Icons.push_pin : Icons.push_pin_outlined,

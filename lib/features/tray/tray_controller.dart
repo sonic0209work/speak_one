@@ -178,7 +178,6 @@ class TrayController {
       result is Success<String> ? result.value : '',
       aiPending: false,
     );
-    _notificationService.playDing();
   }
 
   static String _ollamaErrorMessage(DioException e) => switch (e.type) {

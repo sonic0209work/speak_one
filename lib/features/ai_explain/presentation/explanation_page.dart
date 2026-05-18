@@ -18,12 +18,14 @@ class _ExplanationPageState extends State<ExplanationPage> {
   static const _autoDismissSecs = 20;
   static const _windowWidth = 420.0;
   static const _appBarH = 56.0;
-  static const _paddingV = 32.0; // 16 top + 16 bottom
-  static const _minH = 160.0;
+  static const _paddingV = 32.0;
+  static const _minH = 120.0;
   static const _maxH = 560.0;
 
   late int _remaining;
-  Timer? _timer;
+  Timer? _dismissTimer;
+  Timer? _dotsTimer;
+  int _dotCount = 0;
   final _contentKey = GlobalKey();
 
   AppWindowController get _ctrl => GetIt.I<AppWindowController>();
@@ -32,30 +34,49 @@ class _ExplanationPageState extends State<ExplanationPage> {
   void initState() {
     super.initState();
     _remaining = _autoDismissSecs;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _dismissTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _remaining--);
       if (_remaining <= 0) _close();
     });
+    _ctrl.addListener(_onCtrlChanged);
+    if (_ctrl.isAiThinking) _startDots();
     WidgetsBinding.instance.addPostFrameCallback((_) => _resizeToContent());
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _ctrl.removeListener(_onCtrlChanged);
+    _dismissTimer?.cancel();
+    _dotsTimer?.cancel();
     super.dispose();
+  }
+
+  void _onCtrlChanged() {
+    if (!mounted) return;
+    if (!_ctrl.isAiThinking) _stopDots();
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resizeToContent());
+  }
+
+  void _startDots() {
+    _dotsTimer?.cancel();
+    _dotsTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+      if (mounted) setState(() => _dotCount++);
+    });
+  }
+
+  void _stopDots() {
+    _dotsTimer?.cancel();
+    _dotsTimer = null;
   }
 
   void _close() => _ctrl.hideWindow();
 
   Future<void> _resizeToContent() async {
-    final box =
-        _contentKey.currentContext?.findRenderObject() as RenderBox?;
+    final box = _contentKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
-
-    final h = (_appBarH + _paddingV + box.size.height)
-        .clamp(_minH, _maxH);
-
+    final h = (_appBarH + _paddingV + box.size.height).clamp(_minH, _maxH);
     await windowManager.setMinimumSize(Size(_windowWidth, h));
     await windowManager.setSize(Size(_windowWidth, h));
     await _repositionBottomRight(h);
@@ -79,9 +100,12 @@ class _ExplanationPageState extends State<ExplanationPage> {
   @override
   Widget build(BuildContext context) {
     final original = _ctrl.original;
+    final translation = _ctrl.translation;
     final explanation = _ctrl.explanation;
+    final isThinking = _ctrl.isAiThinking;
     final preview =
         original.length > 50 ? '${original.substring(0, 50)}…' : original;
+    final dots = '.' * (_dotCount % 3 + 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -114,10 +138,31 @@ class _ExplanationPageState extends State<ExplanationPage> {
           key: _contentKey,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Translation
             SelectableText(
-              explanation,
-              style: const TextStyle(fontSize: 14, height: 1.6),
+              translation,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, height: 1.5),
             ),
+            // AI section
+            if (isThinking || explanation.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Divider(color: Theme.of(context).dividerColor),
+              const SizedBox(height: 8),
+              if (isThinking)
+                Text(
+                  'thinking$dots',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              else
+                SelectableText(
+                  explanation,
+                  style: const TextStyle(fontSize: 14, height: 1.6),
+                ),
+            ],
           ],
         ),
       ),

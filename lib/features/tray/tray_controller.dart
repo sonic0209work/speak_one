@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:get_it/get_it.dart';
 import 'package:speak_one_linux_accessibility/speak_one_linux_accessibility.dart';
 
 import '../../app/app_window_controller.dart';
@@ -12,6 +13,7 @@ import '../../features/detection/domain/services/selection_filter_service.dart';
 import '../../features/hotkey/data/hotkey_repository.dart';
 import '../../features/notification/notification_service.dart';
 import '../../features/ocr_capture/data/ocr_capture_service.dart';
+import '../../features/settings/settings_service.dart';
 import '../../features/translate/data/translate_service.dart';
 import '../../features/tts/domain/tts_repository.dart';
 import 'tray_icon_service.dart';
@@ -56,9 +58,7 @@ class TrayController {
     await _trayIconService.setSpeaking();
     await _ttsRepository.stop();
 
-    // Translation and AI explanation fire in parallel.
-    _translateAndNotify(event.text, generation);
-    _aiExplainAndShow(event.text, generation);
+    _translateThenShow(event.text, generation);
 
     final result = await _ttsRepository.speak(event.text);
     if (_generation != generation) return;
@@ -84,16 +84,12 @@ class TrayController {
 
     final text = (result as Success<String>).value;
     if (text.isEmpty) {
-      await _notificationService.showMessage(
-        'Speak One',
-        'No text found in captured region',
-      );
+      await _notificationService.showMessage('Speak One', 'No text found in captured region');
       return;
     }
 
     await _trayIconService.setSpeaking();
-    _translateAndNotify(text, generation);
-    _aiExplainAndShow(text, generation);
+    _translateThenShow(text, generation);
 
     final ttsResult = await _ttsRepository.speak(text);
     if (_generation != generation) return;
@@ -104,24 +100,33 @@ class TrayController {
     }
   }
 
-  Future<void> _translateAndNotify(String text, int generation) async {
-    final result = await _translateService.translate(text);
+  // Translates text, shows the window, then (if AI enabled) fetches explanation.
+  Future<void> _translateThenShow(String text, int generation) async {
+    final translateResult = await _translateService.translate(text);
     if (_generation != generation) return;
-    if (result is Success<String>) {
-      await _notificationService.show(text, result.value);
-    }
-  }
+    if (translateResult is! Success<String>) return;
 
-  Future<void> _aiExplainAndShow(String text, int generation) async {
+    final aiEnabled = GetIt.I<SettingsService>().aiEnabled;
+    await _appWindowController.showTranslation(
+      text,
+      translateResult.value,
+      aiPending: aiEnabled,
+    );
+
+    if (!aiEnabled) return;
+
     _aiCancelToken?.cancel();
     final token = _aiCancelToken = CancelToken();
     _trayIconService.startThinking();
-    final result = await _ollamaService.explain(text, cancelToken: token);
+    final aiResult = await _ollamaService.explain(text, cancelToken: token);
     if (_generation != generation) return;
     _aiCancelToken = null;
     await _trayIconService.stopThinking();
-    if (result is Success<String>) {
-      await _appWindowController.showExplanation(text, result.value);
+    if (aiResult is Success<String>) {
+      await _appWindowController.updateExplanation(aiResult.value);
+    } else {
+      // AI failed — clear the thinking indicator so the window doesn't hang.
+      await _appWindowController.updateExplanation('');
     }
   }
 

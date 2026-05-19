@@ -79,11 +79,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 18),
-          onPressed: _ctrl.hideWindow,
-          tooltip: 'Close',
-        ),
+        automaticallyImplyLeading: false,
         title: const Text('History'),
         actions: [
           if (_items.isNotEmpty)

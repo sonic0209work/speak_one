@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tray_manager/tray_manager.dart';
 
@@ -23,6 +22,7 @@ class TrayIconService with TrayListener {
   ];
 
   VoidCallback? onSettingsRequested;
+  VoidCallback? onHistoryRequested;
 
   String _logicalIcon = _idle;
   int _frameIndex = 0;
@@ -34,6 +34,7 @@ class TrayIconService with TrayListener {
     trayManager.addListener(this);
     await trayManager.setIcon(_path(_idle));
     await trayManager.setContextMenu(Menu(items: [
+      MenuItem(key: 'history', label: 'History'),
       MenuItem(key: 'settings', label: 'Settings'),
       MenuItem.separator(),
       MenuItem(key: 'exit', label: 'Exit'),
@@ -43,6 +44,8 @@ class TrayIconService with TrayListener {
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
     switch (menuItem.key) {
+      case 'history':
+        onHistoryRequested?.call();
       case 'settings':
         onSettingsRequested?.call();
       case 'exit':

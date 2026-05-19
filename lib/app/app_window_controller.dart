@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
-enum WindowView { none, settings, explanation }
+enum WindowView { none, settings, explanation, history }
 
 class AppWindowController extends ChangeNotifier {
   WindowView _view = WindowView.none;
@@ -13,6 +13,8 @@ class AppWindowController extends ChangeNotifier {
   bool _isAiThinking = false;
   bool _isExplanationError = false;
   int _explanationGeneration = 0;
+  int? _currentHistoryId;
+  bool _isBookmarked = false;
   // Set when the panel is anchored near the cursor.
   // repositionForSize uses these to keep the panel pinned to the cursor edge.
   bool _anchoredNearSelection = false;
@@ -33,6 +35,8 @@ class AppWindowController extends ChangeNotifier {
   bool get isAiThinking => _isAiThinking;
   bool get isExplanationError => _isExplanationError;
   int get explanationGeneration => _explanationGeneration;
+  int? get currentHistoryId => _currentHistoryId;
+  bool get isBookmarked => _isBookmarked;
 
   // Opens the window immediately with just the original text.
   Future<void> showOriginal(String original, {double? cursorX, double? cursorY}) async {
@@ -43,6 +47,8 @@ class AppWindowController extends ChangeNotifier {
     _isTranslating = true;
     _isAiThinking = false;
     _isExplanationError = false;
+    _currentHistoryId = null;
+    _isBookmarked = false;
     _view = WindowView.explanation;
     _explanationGeneration++;
     _anchoredNearSelection = false;
@@ -98,6 +104,12 @@ class AppWindowController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setHistoryEntry(int id, {required bool bookmarked}) {
+    _currentHistoryId = id;
+    _isBookmarked = bookmarked;
+    notifyListeners();
+  }
+
   /// Called from the panel's language-switch bar; TrayController provides the impl.
   void retranslate(String targetLang) {
     if (_view != WindowView.explanation) return;
@@ -129,6 +141,18 @@ class AppWindowController extends ChangeNotifier {
     await windowManager.show();
     await windowManager.focus();
     // SettingsPage._resizeToContent() handles sizing and centering via postFrameCallback.
+  }
+
+  static const _historySize = Size(420, 560);
+
+  Future<void> showHistory() async {
+    _view = WindowView.history;
+    notifyListeners();
+    await windowManager.setMinimumSize(_historySize);
+    await windowManager.setSize(_historySize);
+    await windowManager.setAlignment(Alignment.center);
+    await windowManager.show();
+    await windowManager.focus();
   }
 
   Future<void> hideWindow() async {

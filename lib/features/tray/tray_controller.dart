@@ -15,6 +15,7 @@ import '../../features/notification/notification_service.dart';
 import '../../features/ocr_capture/data/ocr_capture_service.dart';
 import '../../features/settings/settings_service.dart';
 import '../../features/translate/data/translate_service.dart';
+import '../../features/translation_history/domain/repositories/history_repository.dart';
 import '../../features/tts/domain/tts_repository.dart';
 import 'tray_icon_service.dart';
 
@@ -41,6 +42,7 @@ class TrayController {
     _hotkeySubscription = hotkeyRepository.activations.listen((_) => _handleCapture());
     _appWindowController.onRetranslateRequested = _retranslateWith;
     _appWindowController.addListener(_onWindowChanged);
+    _trayIconService.onHistoryRequested = _appWindowController.showHistory;
   }
 
   final TrayIconService _trayIconService;
@@ -124,15 +126,50 @@ class TrayController {
 
   // Fetches translation then AI explanation, updating the already-visible window.
   Future<void> _translateAndUpdate(String text, int generation) async {
+    final settings = GetIt.I<SettingsService>();
+    final history = GetIt.I<HistoryRepository>();
+
+    // --- Session cache: bookmarked hit skips the API ---
+    final cached = await history.findCached(
+      sourceText: text,
+      sourceLang: settings.sourceLang,
+      targetLang: settings.targetLang,
+    );
+    if (_generation != generation) return;
+    if (cached != null) {
+      final aiEnabled = settings.aiEnabled;
+      _appWindowController.setHistoryEntry(cached.id, bookmarked: cached.isBookmarked);
+      await _appWindowController.updateTranslation(
+        cached.translated,
+        aiPending: false,
+      );
+      if (cached.aiResult != null && aiEnabled) {
+        await _appWindowController.updateExplanation(cached.aiResult!);
+      }
+      _notificationService.playDing();
+      return;
+    }
+
+    // --- Cache miss: call translation API ---
     final translateResult = await _translateService.translate(text);
     if (_generation != generation) return;
     if (translateResult is! Success<String>) return;
 
-    final aiEnabled = GetIt.I<SettingsService>().aiEnabled;
+    final translated = translateResult.value;
+    final aiEnabled = settings.aiEnabled;
     await _appWindowController.updateTranslation(
-      translateResult.value,
+      translated,
       aiPending: aiEnabled,
     );
+
+    final historyId = await history.add(
+      sourceText: text,
+      sourceLang: settings.sourceLang,
+      targetLang: settings.targetLang,
+      translated: translated,
+    );
+    if (_generation != generation) return;
+    _appWindowController.setHistoryEntry(historyId, bookmarked: false);
 
     if (!aiEnabled) {
       _notificationService.playDing();
@@ -161,6 +198,8 @@ class TrayController {
       _appWindowController.setExplanationError(_ollamaErrorMessage(aiError));
     } else if (aiBuffer.isEmpty) {
       await _appWindowController.updateExplanation('');
+    } else {
+      await history.updateAiResult(historyId, aiBuffer.toString());
     }
     _notificationService.playDing();
   }

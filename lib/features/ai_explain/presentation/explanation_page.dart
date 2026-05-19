@@ -7,6 +7,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../../app/app_window_controller.dart';
 import '../../settings/settings_service.dart';
+import '../../translation_history/domain/repositories/history_repository.dart';
 import '../../tts/domain/tts_repository.dart';
 
 class ExplanationPage extends StatefulWidget {
@@ -42,6 +43,7 @@ class _ExplanationPageState extends State<ExplanationPage>
 
   AppWindowController get _ctrl => GetIt.I<AppWindowController>();
   TtsRepository get _tts => GetIt.I<TtsRepository>();
+  HistoryRepository get _history => GetIt.I<HistoryRepository>();
 
   @override
   void initState() {
@@ -115,6 +117,14 @@ class _ExplanationPageState extends State<ExplanationPage>
 
   void _close() => _ctrl.hideWindow();
 
+  Future<void> _toggleBookmark() async {
+    final id = _ctrl.currentHistoryId;
+    if (id == null) return;
+    final newVal = !_ctrl.isBookmarked;
+    await _history.setBookmark(id, bookmarked: newVal);
+    _ctrl.setHistoryEntry(id, bookmarked: newVal);
+  }
+
   Future<void> _toggleSpeak() async {
     if (_isSpeaking) {
       await _tts.stop();
@@ -183,6 +193,22 @@ class _ExplanationPageState extends State<ExplanationPage>
             ),
           ),
           actions: [
+            IconButton(
+              icon: Icon(
+                _ctrl.isBookmarked ? Icons.star : Icons.star_border,
+                size: 18,
+                color: _ctrl.isBookmarked
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+              onPressed: _ctrl.currentHistoryId != null ? _toggleBookmark : null,
+              tooltip: _ctrl.isBookmarked ? 'Unstar' : 'Star',
+            ),
+            IconButton(
+              icon: const Icon(Icons.history, size: 18),
+              onPressed: _ctrl.showHistory,
+              tooltip: 'History',
+            ),
             IconButton(
               icon: Icon(
                 _isSpeaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined,

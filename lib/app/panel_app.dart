@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app_window_controller.dart';
 import '../features/ai_explain/presentation/explanation_page.dart';
 import '../features/settings/presentation/settings_page.dart';
+import '../features/translation_history/presentation/history_page.dart';
 
 class PanelApp extends StatefulWidget {
   const PanelApp({super.key});
@@ -39,10 +40,11 @@ class _PanelAppState extends State<PanelApp> with WindowListener {
       theme: ThemeData.dark(),
       home: ListenableBuilder(
         listenable: _ctrl,
-        builder: (_, __) => switch (_ctrl.view) {
+        builder: (_, _) => switch (_ctrl.view) {
           WindowView.explanation => ExplanationPage(
               key: ValueKey(_ctrl.explanationGeneration),
             ),
+          WindowView.history => const HistoryPage(),
           _ => const SettingsPage(),
         },
       ),

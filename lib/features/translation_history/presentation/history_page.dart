@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 
-import '../../../app/app_window_controller.dart';
 import '../domain/entities/history_entry.dart';
 import '../domain/repositories/history_repository.dart';
 
@@ -19,7 +18,6 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _loading = true;
 
   HistoryRepository get _repo => GetIt.I<HistoryRepository>();
-  AppWindowController get _ctrl => GetIt.I<AppWindowController>();
 
   @override
   void initState() {
@@ -161,7 +159,7 @@ class _HistoryPageState extends State<HistoryPage> {
       );
 }
 
-class _HistoryTile extends StatelessWidget {
+class _HistoryTile extends StatefulWidget {
   const _HistoryTile({
     required this.item,
     required this.onBookmark,
@@ -171,6 +169,13 @@ class _HistoryTile extends StatelessWidget {
   final HistoryItem item;
   final VoidCallback onBookmark;
   final VoidCallback onDelete;
+
+  @override
+  State<_HistoryTile> createState() => _HistoryTileState();
+}
+
+class _HistoryTileState extends State<_HistoryTile> {
+  bool _expanded = false;
 
   static final _dateFmt = DateFormat('MM/dd');
   static final _timeFmt = DateFormat('HH:mm');
@@ -187,75 +192,82 @@ class _HistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: onBookmark,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2, right: 8),
-              child: Icon(
-                item.isBookmarked ? Icons.star : Icons.star_border,
-                size: 18,
-                color: item.isBookmarked
-                    ? scheme.primary
-                    : scheme.onSurface.withValues(alpha: 0.35),
+    final item = widget.item;
+    return InkWell(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: widget.onBookmark,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2, right: 8),
+                child: Icon(
+                  item.isBookmarked ? Icons.star : Icons.star_border,
+                  size: 18,
+                  color: item.isBookmarked
+                      ? scheme.primary
+                      : scheme.onSurface.withValues(alpha: 0.35),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.sourceText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.translated,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 13,
-                      color: scheme.onSurface.withValues(alpha: 0.65)),
-                ),
-                if (item.aiResult != null && item.aiResult!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    item.aiResult!,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                    item.sourceText,
+                    maxLines: _expanded ? null : 1,
+                    overflow: _expanded ? null : TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.translated,
+                    maxLines: _expanded ? null : 2,
+                    overflow: _expanded ? null : TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: 12,
-                        height: 1.5,
-                        color: scheme.onSurface.withValues(alpha: 0.5)),
+                        fontSize: 13,
+                        color: scheme.onSurface.withValues(alpha: 0.65)),
+                  ),
+                  if (item.aiResult != null && item.aiResult!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.aiResult!,
+                      maxLines: _expanded ? null : 3,
+                      overflow: _expanded ? null : TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12,
+                          height: 1.5,
+                          color: scheme.onSurface.withValues(alpha: 0.5)),
+                    ),
+                  ],
+                  const SizedBox(height: 3),
+                  Text(
+                    '${item.sourceLang} → ${item.targetLang}  ·  ${_formatDate(item.createdAt)}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: scheme.onSurface.withValues(alpha: 0.35)),
                   ),
                 ],
-                const SizedBox(height: 3),
-                Text(
-                  '${item.sourceLang} → ${item.targetLang}  ·  ${_formatDate(item.createdAt)}',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: scheme.onSurface.withValues(alpha: 0.35)),
-                ),
-              ],
+              ),
             ),
-          ),
-          GestureDetector(
-            onTap: onDelete,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2, left: 8),
-              child: Icon(Icons.close, size: 14,
-                  color: scheme.onSurface.withValues(alpha: 0.35)),
+            GestureDetector(
+              onTap: widget.onDelete,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2, left: 8),
+                child: Icon(Icons.close,
+                    size: 14,
+                    color: scheme.onSurface.withValues(alpha: 0.35)),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

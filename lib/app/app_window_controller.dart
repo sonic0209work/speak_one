@@ -38,6 +38,9 @@ class AppWindowController extends ChangeNotifier {
   int? get currentHistoryId => _currentHistoryId;
   bool get isBookmarked => _isBookmarked;
 
+  String _captureStatus = '';
+  String get captureStatus => _captureStatus;
+
   // Opens the window immediately with just the original text.
   Future<void> showOriginal(String original, {double? cursorX, double? cursorY}) async {
     if (_view == WindowView.settings) return;
@@ -49,6 +52,7 @@ class AppWindowController extends ChangeNotifier {
     _isExplanationError = false;
     _currentHistoryId = null;
     _isBookmarked = false;
+    _captureStatus = '';
     _view = WindowView.explanation;
     _explanationGeneration++;
     _anchoredNearSelection = false;
@@ -102,6 +106,36 @@ class AppWindowController extends ChangeNotifier {
     _isAiThinking = false;
     _isExplanationError = true;
     notifyListeners();
+  }
+
+  Future<void> showCapturing() async {
+    if (_view == WindowView.settings) return;
+    _captureStatus = 'Capturing…';
+    _view = WindowView.explanation;
+    _original = '';
+    _translation = '';
+    _explanation = '';
+    _isTranslating = false;
+    _isAiThinking = false;
+    _isExplanationError = false;
+    _currentHistoryId = null;
+    _isBookmarked = false;
+    _explanationGeneration++;
+    _anchoredNearSelection = false;
+    notifyListeners();
+    await windowManager.setMinimumSize(_explanationSize);
+    await windowManager.setSize(_explanationSize);
+    await _positionBottomRight(_explanationSize);
+    await windowManager.show();
+  }
+
+  void setCaptureStatus(String status) {
+    _captureStatus = status;
+    notifyListeners();
+  }
+
+  void clearCaptureStatus() {
+    _captureStatus = '';
   }
 
   void setHistoryEntry(int id, {required bool bookmarked}) {

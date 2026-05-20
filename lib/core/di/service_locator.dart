@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get_it/get_it.dart';
 
 import '../../app/app_window_controller.dart';
@@ -23,7 +25,9 @@ Future<void> setupServiceLocator() async {
   await settings.init();
   gi.registerSingleton<SettingsService>(settings);
   gi.registerSingleton<AppDatabase>(AppDatabase());
-  gi.registerSingleton<HistoryRepository>(HistoryRepositoryImpl());
+  final historyRepo = HistoryRepositoryImpl();
+  gi.registerSingleton<HistoryRepository>(historyRepo);
+  unawaited(historyRepo.pruneExpired());
   gi.registerSingleton<IsolateService>(IsolateService());
   gi.registerSingleton<TtsRepository>(FlutterTtsRepository(GoogleTtsEngine()));
   gi.registerSingleton<TranslateService>(TranslateService());

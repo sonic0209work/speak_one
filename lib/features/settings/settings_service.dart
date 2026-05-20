@@ -11,6 +11,7 @@ class SettingsService {
   static const _keyOllamaUrl = 'ollama_url';
   static const _keyOllamaModel = 'ollama_model';
   static const _keyHotkey = 'hotkey_config';
+  static const _keyHistoryRetentionDays = 'history_retention_days';
 
   static const _defaultSource = 'auto';
   static const _defaultTarget = 'zh-TW';
@@ -53,4 +54,10 @@ class SettingsService {
 
   Future<void> setHotkeyConfig(HotKey v) async =>
       _prefs?.setString(_keyHotkey, jsonEncode(v.toJson()));
+
+  int get historyRetentionDays =>
+      _prefs?.getInt(_keyHistoryRetentionDays) ?? 30;
+
+  Future<void> setHistoryRetentionDays(int v) async =>
+      _prefs?.setInt(_keyHistoryRetentionDays, v);
 }

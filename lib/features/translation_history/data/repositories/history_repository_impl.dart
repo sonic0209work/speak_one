@@ -2,13 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../settings/settings_service.dart';
 import '../../domain/entities/history_entry.dart';
 import '../../domain/repositories/history_repository.dart';
 
 class HistoryRepositoryImpl implements HistoryRepository {
   AppDatabase get _db => GetIt.I<AppDatabase>();
-
-  static const _retentionDays = 30;
+  int get _retentionDays => GetIt.I<SettingsService>().historyRetentionDays;
 
   static String _normalize(String text) => text.trim().toLowerCase();
 
@@ -21,7 +21,7 @@ class HistoryRepositoryImpl implements HistoryRepository {
     String? aiResult,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final expires = now + const Duration(days: _retentionDays).inMilliseconds;
+    final expires = now + Duration(days: _retentionDays).inMilliseconds;
     return _db.into(_db.historyEntries).insert(
           HistoryEntriesCompanion.insert(
             sourceText: sourceText,
@@ -52,7 +52,7 @@ class HistoryRepositoryImpl implements HistoryRepository {
       expiresAt: bookmarked
           ? const Value(null)
           : Value(DateTime.now()
-                  .add(const Duration(days: _retentionDays))
+                  .add(Duration(days: _retentionDays))
                   .millisecondsSinceEpoch),
     ));
   }
@@ -82,6 +82,15 @@ class HistoryRepositoryImpl implements HistoryRepository {
             e.sourceText.toLowerCase().contains(lower) ||
             e.translated.toLowerCase().contains(lower))
         .toList();
+  }
+
+  @override
+  Future<int> pruneExpired() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return (_db.delete(_db.historyEntries)
+          ..where((t) =>
+              t.expiresAt.isNotNull() & t.expiresAt.isSmallerThanValue(now)))
+        .go();
   }
 
   @override

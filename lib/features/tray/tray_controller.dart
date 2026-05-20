@@ -77,6 +77,11 @@ class TrayController {
 
   Future<void> _handleCapture() async {
     final generation = ++_generation;
+
+    await _appWindowController.showCapturing();
+    if (_generation != generation) return;
+
+    _appWindowController.setCaptureStatus('Recognizing text…');
     final result = await _ocrCaptureService.capture();
     if (_generation != generation) return;
 
@@ -85,16 +90,18 @@ class TrayController {
       if (err is OcrCaptureException && !err.isSilent) {
         await _notificationService.showMessage('Speak One', err.message);
       }
+      await _appWindowController.hideWindow();
       return;
     }
 
     final text = (result as Success<String>).value;
     if (text.isEmpty) {
       await _notificationService.showMessage('Speak One', 'No text found in captured region');
+      await _appWindowController.hideWindow();
       return;
     }
 
-    // Cursor is now at the corner of the captured region — use it to anchor the panel.
+    _appWindowController.setCaptureStatus('Translating…');
     final cursorPos = await AccessibilityPlugin.queryCursorPosition();
     if (_generation != generation) return;
 

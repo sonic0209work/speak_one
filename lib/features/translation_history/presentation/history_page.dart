@@ -16,6 +16,7 @@ class _HistoryPageState extends State<HistoryPage> {
   final _searchCtrl = TextEditingController();
   List<HistoryItem> _items = [];
   bool _loading = true;
+  bool _showBookmarkedOnly = false;
 
   HistoryRepository get _repo => GetIt.I<HistoryRepository>();
 
@@ -33,7 +34,8 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _load({String? query}) async {
-    final items = await _repo.getAll(query: query);
+    var items = await _repo.getAll(query: query);
+    if (_showBookmarkedOnly) items = items.where((e) => e.isBookmarked).toList();
     if (mounted) setState(() { _items = items; _loading = false; });
   }
 
@@ -80,6 +82,20 @@ class _HistoryPageState extends State<HistoryPage> {
         automaticallyImplyLeading: false,
         title: const Text('History'),
         actions: [
+          IconButton(
+            icon: Icon(
+              _showBookmarkedOnly ? Icons.star : Icons.star_border,
+              size: 18,
+              color: _showBookmarkedOnly
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+            onPressed: () => setState(() {
+              _showBookmarkedOnly = !_showBookmarkedOnly;
+              _load(query: _searchCtrl.text);
+            }),
+            tooltip: _showBookmarkedOnly ? 'Show all' : 'Starred only',
+          ),
           if (_items.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep_outlined, size: 18),
@@ -180,6 +196,20 @@ class _HistoryTileState extends State<_HistoryTile> {
   static final _dateFmt = DateFormat('MM/dd');
   static final _timeFmt = DateFormat('HH:mm');
 
+  static const _langNames = {
+    'auto': 'Auto',
+    'en': 'EN',
+    'zh-TW': '繁中',
+    'zh-CN': '簡中',
+    'ja': 'JP',
+    'ko': 'KR',
+    'fr': 'FR',
+    'de': 'DE',
+    'es': 'ES',
+  };
+
+  static String _langLabel(String code) => _langNames[code] ?? code;
+
   String _formatDate(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
@@ -248,7 +278,7 @@ class _HistoryTileState extends State<_HistoryTile> {
                   ],
                   const SizedBox(height: 3),
                   Text(
-                    '${item.sourceLang} → ${item.targetLang}  ·  ${_formatDate(item.createdAt)}',
+                    '${_langLabel(item.sourceLang)} → ${_langLabel(item.targetLang)}  ·  ${_formatDate(item.createdAt)}',
                     style: TextStyle(
                         fontSize: 11,
                         color: scheme.onSurface.withValues(alpha: 0.35)),

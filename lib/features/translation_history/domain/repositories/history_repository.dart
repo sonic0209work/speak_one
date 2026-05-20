@@ -20,6 +20,9 @@ abstract interface class HistoryRepository {
 
   Future<List<HistoryItem>> getAll({String? query});
 
+  /// Deletes all records whose [expiresAt] is in the past.
+  Future<int> pruneExpired();
+
   /// Returns a cached translation for [sourceText] if a bookmarked record
   /// with matching normalized key exists. Returns null on miss.
   Future<HistoryItem?> findCached({

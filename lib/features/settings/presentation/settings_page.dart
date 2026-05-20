@@ -48,6 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _ollamaModel;
   bool _autostartEnabled = false;
   late HotKey _hotkeyConfig;
+  late int _historyRetentionDays;
 
   @override
   void initState() {
@@ -58,6 +59,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _ollamaUrl = TextEditingController(text: _settings.ollamaUrl);
     _ollamaModel = TextEditingController(text: _settings.ollamaModel);
     _hotkeyConfig = _settings.hotkeyConfig;
+    _historyRetentionDays = _settings.historyRetentionDays;
     _autostart.isEnabled().then((v) {
       if (mounted) setState(() => _autostartEnabled = v);
     });
@@ -78,6 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
     await _settings.setOllamaModel(_ollamaModel.text.trim());
     await _settings.setHotkeyConfig(_hotkeyConfig);
     await _hotkeyRepo.update(_hotkeyConfig);
+    await _settings.setHistoryRetentionDays(_historyRetentionDays);
     if (_autostartEnabled) {
       await _autostart.enable();
     } else {
@@ -155,6 +158,22 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 20),
+            _sectionLabel('History'),
+            const SizedBox(height: 8),
+            _LangRow(
+              label: 'Keep history for',
+              value: _historyRetentionDays.toString(),
+              options: const [
+                ('7', '7 days'),
+                ('14', '14 days'),
+                ('30', '30 days'),
+                ('60', '60 days'),
+                ('90', '90 days'),
+              ],
+              onChanged: (v) =>
+                  setState(() => _historyRetentionDays = int.parse(v)),
             ),
             const SizedBox(height: 20),
             _sectionLabel('System'),

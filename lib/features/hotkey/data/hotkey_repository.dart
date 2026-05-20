@@ -35,6 +35,19 @@ class HotkeyRepository {
     }
   }
 
+  Future<void> suspend() async {
+    if (_registered != null) await hotKeyManager.unregister(_registered!);
+  }
+
+  Future<void> resume() async {
+    if (_registered != null) {
+      await hotKeyManager.register(
+        _registered!,
+        keyDownHandler: (_) => _controller.add(null),
+      );
+    }
+  }
+
   Future<void> dispose() async {
     if (_registered != null) {
       await hotKeyManager.unregister(_registered!);

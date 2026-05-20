@@ -38,8 +38,8 @@ class TrayController {
         _appWindowController = appWindowController,
         _ocrCaptureService = ocrCaptureService {
     final filter = SelectionFilterService();
-    _atSpiSubscription = filter.filter(isolateService.events).listen(_onSelection);
-    _hotkeySubscription = hotkeyRepository.activations.listen((_) => _handleCapture());
+    _atSpiSubscription = filter.filter(isolateService.events).listen(_onSelectionEvent);
+    _hotkeySubscription = hotkeyRepository.activations.listen((_) => _onHotkeyActivated());
     _appWindowController.onRetranslateRequested = _retranslateWith;
     _appWindowController.addListener(_onWindowChanged);
     _trayIconService.onHistoryRequested = _appWindowController.showHistory;
@@ -56,14 +56,41 @@ class TrayController {
   late final StreamSubscription<void> _hotkeySubscription;
   int _generation = 0;
   CancelToken? _aiCancelToken;
+  TextSelectionEvent? _lastSelection;
+  DateTime? _lastSelectionAt;
 
-  Future<void> _onSelection(TextSelectionEvent event) async {
+  // Just cache the latest selection — translation is hotkey-triggered.
+  void _onSelectionEvent(TextSelectionEvent event) {
+    _lastSelection = event;
+    _lastSelectionAt = DateTime.now();
+  }
+
+  Future<void> _onHotkeyActivated() async {
+    final sel = _lastSelection;
+    final selAt = _lastSelectionAt;
+    final selIsRecent = sel != null &&
+        selAt != null &&
+        DateTime.now().difference(selAt).inSeconds < 30;
+
+    if (selIsRecent) {
+      _lastSelection = null;
+      _lastSelectionAt = null;
+      await _translateSelectionEvent(sel);
+    } else {
+      await _handleOcrCapture();
+    }
+  }
+
+  Future<void> _translateSelectionEvent(TextSelectionEvent event) async {
     final generation = ++_generation;
     await _trayIconService.setSpeaking();
     await _ttsRepository.stop();
 
-    // Open window immediately, then fill translation + AI in background.
-    await _appWindowController.showOriginal(event.text, cursorX: event.cursorX, cursorY: event.cursorY);
+    await _appWindowController.showOriginal(
+      event.text,
+      cursorX: event.cursorX,
+      cursorY: event.cursorY,
+    );
     _translateAndUpdate(event.text, generation);
 
     final result = await _ttsRepository.speak(event.text);
@@ -75,7 +102,7 @@ class TrayController {
     }
   }
 
-  Future<void> _handleCapture() async {
+  Future<void> _handleOcrCapture() async {
     final generation = ++_generation;
     final result = await _ocrCaptureService.capture();
     if (_generation != generation) return;

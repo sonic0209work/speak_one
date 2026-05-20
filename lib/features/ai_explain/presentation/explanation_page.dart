@@ -166,7 +166,6 @@ class _ExplanationPageState extends State<ExplanationPage>
     final isTranslating = _ctrl.isTranslating;
     final isThinking = _ctrl.isAiThinking;
     final isExplanationError = _ctrl.isExplanationError;
-    final captureStatus = _ctrl.captureStatus;
     final preview = original.length > 50 ? '${original.substring(0, 50)}…' : original;
     final dots = '.' * (_dotCount % 3 + 1);
     final scheme = Theme.of(context).colorScheme;
@@ -245,7 +244,7 @@ class _ExplanationPageState extends State<ExplanationPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isTranslating || captureStatus.isNotEmpty)
+            if (isTranslating)
               const LinearProgressIndicator(minHeight: 2),
             Flexible(
               child: SingleChildScrollView(
@@ -254,21 +253,6 @@ class _ExplanationPageState extends State<ExplanationPage>
                   key: _contentKey,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (captureStatus.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          captureStatus,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ),
                     // Translation card + language bar
                     AnimatedSwitcher(
                       duration: _fadeDuration,

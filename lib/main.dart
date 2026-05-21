@@ -50,7 +50,8 @@ void main() async {
       notificationService: GetIt.I<NotificationService>(),
       ollamaService: GetIt.I<OllamaService>(),
       appWindowController: appWindowController,
-      hotkeyRepository: GetIt.I<HotkeyRepository>(),
+      ocrHotkeyRepository: GetIt.I<HotkeyRepository>(instanceName: 'ocr'),
+      selectionHotkeyRepository: GetIt.I<HotkeyRepository>(instanceName: 'selection'),
       ocrCaptureService: GetIt.I<OcrCaptureService>(),
     ),
   );

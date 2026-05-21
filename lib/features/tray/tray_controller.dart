@@ -28,7 +28,8 @@ class TrayController {
     required NotificationService notificationService,
     required OllamaService ollamaService,
     required AppWindowController appWindowController,
-    required HotkeyRepository hotkeyRepository,
+    required HotkeyRepository ocrHotkeyRepository,
+    required HotkeyRepository selectionHotkeyRepository,
     required OcrCaptureService ocrCaptureService,
   })  : _trayIconService = trayIconService,
         _ttsRepository = ttsRepository,
@@ -39,7 +40,8 @@ class TrayController {
         _ocrCaptureService = ocrCaptureService {
     final filter = SelectionFilterService();
     _atSpiSubscription = filter.filter(isolateService.events).listen(_onSelectionEvent);
-    _hotkeySubscription = hotkeyRepository.activations.listen((_) => _onHotkeyActivated());
+    _ocrHotkeySubscription = ocrHotkeyRepository.activations.listen((_) => _handleOcrCapture());
+    _selectionHotkeySubscription = selectionHotkeyRepository.activations.listen((_) => _onSelectionHotkey());
     _appWindowController.onRetranslateRequested = _retranslateWith;
     _appWindowController.addListener(_onWindowChanged);
     _trayIconService.onHistoryRequested = _appWindowController.showHistory;
@@ -53,7 +55,8 @@ class TrayController {
   final AppWindowController _appWindowController;
   final OcrCaptureService _ocrCaptureService;
   late final StreamSubscription<TextSelectionEvent> _atSpiSubscription;
-  late final StreamSubscription<void> _hotkeySubscription;
+  late final StreamSubscription<void> _ocrHotkeySubscription;
+  late final StreamSubscription<void> _selectionHotkeySubscription;
   int _generation = 0;
   CancelToken? _aiCancelToken;
   TextSelectionEvent? _lastSelection;
@@ -65,20 +68,17 @@ class TrayController {
     _lastSelectionAt = DateTime.now();
   }
 
-  Future<void> _onHotkeyActivated() async {
+  Future<void> _onSelectionHotkey() async {
     final sel = _lastSelection;
     final selAt = _lastSelectionAt;
     final selIsRecent = sel != null &&
         selAt != null &&
         DateTime.now().difference(selAt).inSeconds < 30;
 
-    if (selIsRecent) {
-      _lastSelection = null;
-      _lastSelectionAt = null;
-      await _translateSelectionEvent(sel);
-    } else {
-      await _handleOcrCapture();
-    }
+    if (!selIsRecent) return;
+    _lastSelection = null;
+    _lastSelectionAt = null;
+    await _translateSelectionEvent(sel);
   }
 
   Future<void> _translateSelectionEvent(TextSelectionEvent event) async {
@@ -256,7 +256,8 @@ class TrayController {
 
   void dispose() {
     _atSpiSubscription.cancel();
-    _hotkeySubscription.cancel();
+    _ocrHotkeySubscription.cancel();
+    _selectionHotkeySubscription.cancel();
     _appWindowController.removeListener(_onWindowChanged);
   }
 }

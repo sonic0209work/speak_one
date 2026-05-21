@@ -26,7 +26,8 @@ class _SettingsPageState extends State<SettingsPage> {
   final _contentKey = GlobalKey();
   final _settings = GetIt.I<SettingsService>();
   final _autostart = GetIt.I<AutostartService>();
-  final _hotkeyRepo = GetIt.I<HotkeyRepository>();
+  final _ocrHotkeyRepo = GetIt.I<HotkeyRepository>(instanceName: 'ocr');
+  final _selectionHotkeyRepo = GetIt.I<HotkeyRepository>(instanceName: 'selection');
   final _ctrl = GetIt.I<AppWindowController>();
 
   static const _langOptions = [
@@ -48,6 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _ollamaModel;
   bool _autostartEnabled = false;
   late HotKey _hotkeyConfig;
+  late HotKey _selectionHotkeyConfig;
   late int _historyRetentionDays;
 
   @override
@@ -59,6 +61,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _ollamaUrl = TextEditingController(text: _settings.ollamaUrl);
     _ollamaModel = TextEditingController(text: _settings.ollamaModel);
     _hotkeyConfig = _settings.hotkeyConfig;
+    _selectionHotkeyConfig = _settings.selectionHotkeyConfig;
     _historyRetentionDays = _settings.historyRetentionDays;
     _autostart.isEnabled().then((v) {
       if (mounted) setState(() => _autostartEnabled = v);
@@ -79,7 +82,9 @@ class _SettingsPageState extends State<SettingsPage> {
     await _settings.setOllamaUrl(_ollamaUrl.text.trim());
     await _settings.setOllamaModel(_ollamaModel.text.trim());
     await _settings.setHotkeyConfig(_hotkeyConfig);
-    await _hotkeyRepo.update(_hotkeyConfig);
+    await _ocrHotkeyRepo.update(_hotkeyConfig);
+    await _settings.setSelectionHotkeyConfig(_selectionHotkeyConfig);
+    await _selectionHotkeyRepo.update(_selectionHotkeyConfig);
     await _settings.setHistoryRetentionDays(_historyRetentionDays);
     if (_autostartEnabled) {
       await _autostart.enable();
@@ -150,10 +155,24 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const SizedBox(width: 140, child: Text('Capture hotkey')),
+                const SizedBox(width: 140, child: Text('Selection hotkey')),
+                Expanded(
+                  child: HotkeyRecorderWidget(
+                    value: _selectionHotkeyConfig,
+                    repoInstanceName: 'selection',
+                    onChanged: (v) => setState(() => _selectionHotkeyConfig = v),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const SizedBox(width: 140, child: Text('OCR hotkey')),
                 Expanded(
                   child: HotkeyRecorderWidget(
                     value: _hotkeyConfig,
+                    repoInstanceName: 'ocr',
                     onChanged: (v) => setState(() => _hotkeyConfig = v),
                   ),
                 ),

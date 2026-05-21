@@ -39,6 +39,11 @@ Future<void> setupServiceLocator() async {
 
   final hotkeyRepo = HotkeyRepository();
   await hotkeyRepo.init(settings.hotkeyConfig);
-  gi.registerSingleton<HotkeyRepository>(hotkeyRepo);
+  gi.registerSingleton<HotkeyRepository>(hotkeyRepo, instanceName: 'ocr');
+
+  final selectionHotkeyRepo = HotkeyRepository();
+  await selectionHotkeyRepo.init(settings.selectionHotkeyConfig);
+  gi.registerSingleton<HotkeyRepository>(selectionHotkeyRepo, instanceName: 'selection');
+
   gi.registerSingleton<OcrCaptureService>(OcrCaptureService());
 }

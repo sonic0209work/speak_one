@@ -12,10 +12,12 @@ class HotkeyRecorderWidget extends StatefulWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    required this.repoInstanceName,
   });
 
   final HotKey value;
   final ValueChanged<HotKey> onChanged;
+  final String repoInstanceName;
 
   @override
   State<HotkeyRecorderWidget> createState() => _HotkeyRecorderWidgetState();
@@ -39,7 +41,7 @@ class _HotkeyRecorderWidgetState extends State<HotkeyRecorderWidget> {
   };
 
   void _startRecording() {
-    GetIt.I<HotkeyRepository>().suspend();
+    GetIt.I<HotkeyRepository>(instanceName: widget.repoInstanceName).suspend();
     setState(() {
       _recording = true;
       _heldModifiers = {};
@@ -51,7 +53,7 @@ class _HotkeyRecorderWidgetState extends State<HotkeyRecorderWidget> {
   void _stopRecording() {
     _cancelTimer?.cancel();
     _cancelTimer = null;
-    GetIt.I<HotkeyRepository>().resume();
+    GetIt.I<HotkeyRepository>(instanceName: widget.repoInstanceName).resume();
     if (mounted) setState(() { _recording = false; _heldModifiers = {}; });
   }
 

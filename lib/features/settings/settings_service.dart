@@ -11,6 +11,7 @@ class SettingsService {
   static const _keyOllamaUrl = 'ollama_url';
   static const _keyOllamaModel = 'ollama_model';
   static const _keyHotkey = 'hotkey_config';
+  static const _keySelectionHotkey = 'selection_hotkey_config';
   static const _keyHistoryRetentionDays = 'history_retention_days';
 
   static const _defaultSource = 'auto';
@@ -20,6 +21,12 @@ class SettingsService {
 
   static final kDefaultHotkey = HotKey(
     key: PhysicalKeyboardKey.keyS,
+    modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
+    scope: HotKeyScope.system,
+  );
+
+  static final kDefaultSelectionHotkey = HotKey(
+    key: PhysicalKeyboardKey.keyT,
     modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
     scope: HotKeyScope.system,
   );
@@ -54,6 +61,19 @@ class SettingsService {
 
   Future<void> setHotkeyConfig(HotKey v) async =>
       _prefs?.setString(_keyHotkey, jsonEncode(v.toJson()));
+
+  HotKey get selectionHotkeyConfig {
+    final json = _prefs?.getString(_keySelectionHotkey);
+    if (json == null) return kDefaultSelectionHotkey;
+    try {
+      return HotKey.fromJson(jsonDecode(json) as Map<String, dynamic>);
+    } catch (_) {
+      return kDefaultSelectionHotkey;
+    }
+  }
+
+  Future<void> setSelectionHotkeyConfig(HotKey v) async =>
+      _prefs?.setString(_keySelectionHotkey, jsonEncode(v.toJson()));
 
   int get historyRetentionDays =>
       _prefs?.getInt(_keyHistoryRetentionDays) ?? 30;
